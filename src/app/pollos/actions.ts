@@ -26,6 +26,8 @@ export async function createPoultryBatch(formData: FormData) {
     });
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
+    revalidatePath('/');
   } catch (error) {
     console.error('Error al crear lote:', error);
   }
@@ -43,16 +45,17 @@ export async function updatePoultryBatch(formData: FormData) {
 
     if (!id || !batchCode || initialQuantity <= 0) return;
 
-    // Calcular las bajas totales que ya tiene registradas
+    // Calcular las bajas y salidas registradas
     const currentBatch = await prisma.poultryBatch.findUnique({
       where: { id },
-      include: { dailyLogs: true },
+      include: { dailyLogs: true, sales: true },
     });
 
     if (!currentBatch) return;
 
     const totalMortality = currentBatch.dailyLogs.reduce((acc, log) => acc + log.mortalityCount, 0);
-    const newCurrentQuantity = Math.max(0, initialQuantity - totalMortality);
+    const totalSold = currentBatch.sales.reduce((acc, sale) => acc + sale.birdsSold, 0);
+    const newCurrentQuantity = Math.max(0, initialQuantity - totalMortality - totalSold);
 
     await prisma.poultryBatch.update({
       where: { id },
@@ -66,13 +69,15 @@ export async function updatePoultryBatch(formData: FormData) {
     });
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
+    revalidatePath('/pollos/historial');
     revalidatePath('/');
   } catch (error) {
     console.error('Error al actualizar lote:', error);
   }
 }
 
-// Agregar Registro Diario
+// Agregar Registro Diario (Consumo / Bajas)
 export async function addDailyLog(formData: FormData) {
   try {
     const batchId = formData.get('batchId') as string;
@@ -129,6 +134,7 @@ export async function addDailyLog(formData: FormData) {
     ]);
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
   } catch (error) {
     console.error('Error al registrar novedad diaria:', error);
   }
@@ -144,7 +150,6 @@ export async function deleteDailyLog(logId: string) {
     if (!log) return;
 
     await prisma.$transaction([
-      // Si tuvo bajas, se devuelven al lote
       prisma.poultryBatch.update({
         where: { id: log.batchId },
         data: {
@@ -159,10 +164,12 @@ export async function deleteDailyLog(logId: string) {
     ]);
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
   } catch (error) {
     console.error('Error al eliminar registro diario:', error);
   }
 }
+
 // Registrar Saca Parcial o Venta
 export async function addPoultrySale(formData: FormData) {
   try {
@@ -171,13 +178,13 @@ export async function addPoultrySale(formData: FormData) {
     const saleType = (formData.get('saleType') as string) || 'EN_PIE';
     const totalWeight = parseFloat(formData.get('totalWeight') as string || '0');
     const totalPrice = parseFloat(formData.get('totalPrice') as string || '0');
+    const paymentStatus = (formData.get('paymentStatus') as string) || 'PAGADO';
     const customer = (formData.get('customer') as string) || '';
     const notes = (formData.get('notes') as string) || '';
 
     if (!batchId || birdsSold <= 0) return;
 
     await prisma.$transaction([
-      // 1. Guardar la venta
       prisma.poultrySale.create({
         data: {
           batchId,
@@ -185,11 +192,11 @@ export async function addPoultrySale(formData: FormData) {
           saleType,
           totalWeight: isNaN(totalWeight) ? 0 : totalWeight,
           totalPrice: isNaN(totalPrice) ? 0 : totalPrice,
+          paymentStatus,
           customer: customer || null,
           notes: notes || null,
         },
       }),
-      // 2. Descontar las aves vivas del lote
       prisma.poultryBatch.update({
         where: { id: batchId },
         data: {
@@ -201,6 +208,7 @@ export async function addPoultrySale(formData: FormData) {
     ]);
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
   } catch (error) {
     console.error('Error al registrar saca parcial:', error);
   }
@@ -230,8 +238,24 @@ export async function deletePoultrySale(saleId: string) {
     ]);
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
   } catch (error) {
     console.error('Error al eliminar venta:', error);
+  }
+}
+
+// Marcar Fiado como Pagado
+export async function markSaleAsPaid(saleId: string) {
+  try {
+    await prisma.poultrySale.update({
+      where: { id: saleId },
+      data: { paymentStatus: 'PAGADO' },
+    });
+
+    revalidatePath('/pollos/ventas');
+    revalidatePath('/pollos');
+  } catch (error) {
+    console.error('Error al actualizar estado de pago:', error);
   }
 }
 
@@ -247,13 +271,15 @@ export async function closePoultryBatch(batchId: string) {
     });
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
+    revalidatePath('/pollos/historial');
     revalidatePath('/');
   } catch (error) {
     console.error('Error al liquidar lote:', error);
   }
 }
 
-// Reabrir Lote (por si se liquidó por error)
+// Reabrir Lote
 export async function reopenPoultryBatch(batchId: string) {
   try {
     await prisma.poultryBatch.update({
@@ -265,6 +291,8 @@ export async function reopenPoultryBatch(batchId: string) {
     });
 
     revalidatePath('/pollos');
+    revalidatePath('/pollos/ventas');
+    revalidatePath('/pollos/historial');
     revalidatePath('/');
   } catch (error) {
     console.error('Error al reabrir lote:', error);

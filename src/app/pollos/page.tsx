@@ -2,25 +2,29 @@ export const instant = false;
 
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { Egg, ArrowLeft, PlusCircle, AlertCircle, Calendar } from 'lucide-react';
+import { Egg, ArrowLeft, PlusCircle, AlertCircle, Calendar, DollarSign, Archive } from 'lucide-react';
 import { createPoultryBatch } from './actions';
 import { DailyLogForm } from './DailyLogForm';
 import { BatchHistoryModal } from './BatchHistoryModal';
 import { EditBatchModal } from './EditBatchModal';
-import { PoultrySalesModal } from './PoultrySalesModal';
 
 export default async function PollosPage() {
-  const batches = await prisma.poultryBatch.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      dailyLogs: {
-        orderBy: { date: 'desc' },
+  // Solo traemos los lotes activos en el galpón
+  const [activeBatches, closedBatchesCount] = await Promise.all([
+    prisma.poultryBatch.findMany({
+      where: { status: 'EN_ENGORDE' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        dailyLogs: {
+          orderBy: { date: 'desc' },
+        },
+        sales: true,
       },
-      sales: {
-        orderBy: { date: 'desc' },
-      },
-    },
-  });
+    }),
+    prisma.poultryBatch.count({
+      where: { status: 'LIQUIDADO' },
+    }),
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-12">
@@ -39,8 +43,27 @@ export default async function PollosPage() {
                 <Egg className="w-5 h-5 text-amber-600" />
                 Avicultura (Pollos de Engorde)
               </h1>
-              <p className="text-xs text-slate-500">Control de lotes, sacas parciales, inversión y liquidación</p>
+              <p className="text-xs text-slate-500">Manejo de galpón y lotes activos en engorde</p>
             </div>
+          </div>
+
+          {/* Accesos rápidos: Ventas e Historial */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/pollos/historial"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition"
+            >
+              <Archive className="w-4 h-4 text-slate-500" />
+              Historial ({closedBatchesCount})
+            </Link>
+
+            <Link
+              href="/pollos/ventas"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg shadow-sm transition"
+            >
+              <DollarSign className="w-4 h-4" />
+              Ventas y Fiados
+            </Link>
           </div>
         </div>
       </header>
@@ -111,26 +134,29 @@ export default async function PollosPage() {
           </div>
         </div>
 
-        {/* Listado de Lotes de Engorde */}
+        {/* Listado de Lotes Activos Únicamente */}
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-lg font-bold text-slate-900">Lotes Registrados</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900">Lotes Activos en Galpón ({activeBatches.length})</h2>
+          </div>
 
-          {batches.length === 0 ? (
+          {activeBatches.length === 0 ? (
             <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
               <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <p className="text-sm font-medium">Aún no has registrado ningún lote.</p>
-              <p className="text-xs text-slate-400 mt-1">Usa el formulario para cargar los lotes del galpón.</p>
+              <p className="text-sm font-medium">No hay lotes en engorde actualmente.</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Registra un nuevo lote o revisa los lotes liquidados en el historial.
+              </p>
             </div>
           ) : (
-            batches.map((batch) => {
-              // Cálculo de bajas reales (excluyendo las aves que ya se vendieron/sacaron)
+            activeBatches.map((batch) => {
               const totalMortality = batch.dailyLogs.reduce((acc, log) => acc + log.mortalityCount, 0);
               const totalSold = batch.sales.reduce((acc, s) => acc + s.birdsSold, 0);
               const mortalityRate = ((totalMortality / batch.initialQuantity) * 100).toFixed(1);
 
               const start = new Date(batch.startDate).getTime();
-              const end = batch.endDate ? new Date(batch.endDate).getTime() : new Date().getTime();
-              const diffDays = Math.max(0, Math.floor((end - start) / (1000 * 60 * 60 * 24)));
+              const now = new Date().getTime();
+              const diffDays = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
 
               const totalFeedServed = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedKgServed), 0);
               const totalFeedCost = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedCost || 0), 0);
@@ -144,9 +170,8 @@ export default async function PollosPage() {
                         <h3 className="text-base font-bold text-slate-900">{batch.batchCode}</h3>
                         <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {batch.status === 'EN_ENGORDE' ? `Día ${diffDays}` : `Ciclo cerrado en ${diffDays} días`}
+                          Día {diffDays}
                         </span>
-                        {/* Botón de Edición del Lote */}
                         <EditBatchModal
                           batch={{
                             id: batch.id,
@@ -161,18 +186,12 @@ export default async function PollosPage() {
                         Ingresó: {new Date(batch.startDate).toLocaleDateString()}
                       </p>
                     </div>
-                    <span
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                        batch.status === 'EN_ENGORDE'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-slate-100 text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      {batch.status === 'EN_ENGORDE' ? 'EN ENGORDE' : 'LIQUIDADO'}
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                      EN ENGORDE
                     </span>
                   </div>
 
-                  {/* Métricas clave del lote */}
+                  {/* Métricas del lote */}
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <span className="text-xs text-slate-500">Población Viva</span>
@@ -181,7 +200,7 @@ export default async function PollosPage() {
                       </p>
                       {totalSold > 0 && (
                         <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
-                          ({totalSold} sacados)
+                          ({totalSold} despachados)
                         </span>
                       )}
                     </div>
@@ -207,29 +226,8 @@ export default async function PollosPage() {
                     </div>
                   </div>
 
-                  {/* Formulario de Novedad Diaria (solo si sigue activo) */}
-                  {batch.status === 'EN_ENGORDE' && (
-                    <DailyLogForm batchId={batch.id} />
-                  )}
-
-                  {/* Módulo de Sacas Parciales y Liquidación */}
-                  <PoultrySalesModal
-                    batchId={batch.id}
-                    batchCode={batch.batchCode}
-                    currentQuantity={batch.currentQuantity}
-                    status={batch.status}
-                    totalCost={totalCost}
-                    sales={batch.sales.map((s) => ({
-                      id: s.id,
-                      date: s.date.toISOString(),
-                      birdsSold: s.birdsSold,
-                      saleType: s.saleType,
-                      totalWeight: Number(s.totalWeight),
-                      totalPrice: Number(s.totalPrice),
-                      customer: s.customer,
-                      notes: s.notes,
-                    }))}
-                  />
+                  {/* Formulario de Novedad Diaria */}
+                  <DailyLogForm batchId={batch.id} />
 
                   {/* Historial de Consumos y Bajas */}
                   <BatchHistoryModal

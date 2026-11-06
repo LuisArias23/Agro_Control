@@ -75,15 +75,15 @@ model PoultryBatch {
   id              String            @id @default(uuid())
   batchCode       String            @unique
   startDate       DateTime          @default(now())
-  endDate         DateTime?         
+  endDate         DateTime?         // <-- Agregado (Fecha de liquidación definitiva)
   initialQuantity Int
   currentQuantity Int
   chickCostTotal  Decimal           @default(0) @db.Decimal(10, 2)
-  status          String            @default("EN_ENGORDE")
+  status          String            @default("EN_ENGORDE") // "EN_ENGORDE" o "LIQUIDADO"
   createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @default(now()) @updatedAt // <--- Añade @default(now()) aquí
+  updatedAt       DateTime          @default(now()) @updatedAt // <-- Agregado con @default(now())
   dailyLogs       PoultryDailyLog[]
-  sales           PoultrySale[]     
+  sales           PoultrySale[]     // <-- Agregado (Relación con las sacas)
 }
 
 model PoultryDailyLog {
@@ -99,17 +99,18 @@ model PoultryDailyLog {
 }
 
 model PoultrySale {
-  id          String       @id @default(uuid())
-  batchId     String
-  batch       PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date        DateTime     @default(now())
-  birdsSold   Int          // Cantidad de pollos sacados/sacrificados
-  saleType    String       @default("EN_PIE") // "EN_PIE" o "CANAL"
-  totalWeight Decimal      @default(0) @db.Decimal(10, 2) // Kilos totales pesados
-  totalPrice  Decimal      @default(0) @db.Decimal(10, 2) // Dinero total recibido ($)
-  customer    String?      // Cliente o destino (Ej: Distribuidor Santa Marta, Venta Local, etc.)
-  notes       String?
-  createdAt   DateTime     @default(now())
+  id            String       @id @default(uuid())
+  batchId       String
+  batch         PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date          DateTime     @default(now())
+  birdsSold     Int          // Cantidad de pollos sacados/despachados
+  saleType      String       @default("EN_PIE") // "EN_PIE" (vivo) o "CANAL" (beneficiado)
+  totalWeight   Decimal      @default(0) @db.Decimal(10, 2) // Kilos totales pesados
+  totalPrice    Decimal      @default(0) @db.Decimal(10, 2) // Valor total de la venta ($)
+  paymentStatus String       @default("PAGADO") // "PAGADO" (contado) o "FIADO" (por cobrar)
+  customer      String?      // Nombre del cliente o destino
+  notes         String?
+  createdAt     DateTime     @default(now())
 }
 
 // ====================================================
