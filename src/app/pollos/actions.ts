@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// Crear Lote
 export async function createPoultryBatch(formData: FormData) {
   try {
     const batchCode = formData.get('batchCode') as string;
@@ -30,6 +31,48 @@ export async function createPoultryBatch(formData: FormData) {
   }
 }
 
+// Editar Datos Básicos del Lote
+export async function updatePoultryBatch(formData: FormData) {
+  try {
+    const id = formData.get('id') as string;
+    const batchCode = formData.get('batchCode') as string;
+    const initialQuantity = parseInt(formData.get('initialQuantity') as string || '0', 10);
+    const chickCostTotal = parseFloat(formData.get('chickCostTotal') as string || '0');
+    const startDateRaw = formData.get('startDate') as string;
+    const startDate = startDateRaw ? new Date(startDateRaw) : new Date();
+
+    if (!id || !batchCode || initialQuantity <= 0) return;
+
+    // Calcular las bajas totales que ya tiene registradas
+    const currentBatch = await prisma.poultryBatch.findUnique({
+      where: { id },
+      include: { dailyLogs: true },
+    });
+
+    if (!currentBatch) return;
+
+    const totalMortality = currentBatch.dailyLogs.reduce((acc, log) => acc + log.mortalityCount, 0);
+    const newCurrentQuantity = Math.max(0, initialQuantity - totalMortality);
+
+    await prisma.poultryBatch.update({
+      where: { id },
+      data: {
+        batchCode,
+        startDate,
+        initialQuantity,
+        currentQuantity: newCurrentQuantity,
+        chickCostTotal,
+      },
+    });
+
+    revalidatePath('/pollos');
+    revalidatePath('/');
+  } catch (error) {
+    console.error('Error al actualizar lote:', error);
+  }
+}
+
+// Agregar Registro Diario
 export async function addDailyLog(formData: FormData) {
   try {
     const batchId = formData.get('batchId') as string;
@@ -40,7 +83,6 @@ export async function addDailyLog(formData: FormData) {
 
     const bultos = parseFloat(formData.get('bultos') as string || '0');
     const manualKg = parseFloat(formData.get('manualKg') as string || '0');
-    // Toma el valor neto directo en plata que costó lo que se sirvió
     const feedCost = parseFloat(formData.get('feedCost') as string || '0');
 
     let feedKgServed = 0;
@@ -89,5 +131,142 @@ export async function addDailyLog(formData: FormData) {
     revalidatePath('/pollos');
   } catch (error) {
     console.error('Error al registrar novedad diaria:', error);
+  }
+}
+
+// Eliminar Registro Diario y Restaurar Aves
+export async function deleteDailyLog(logId: string) {
+  try {
+    const log = await prisma.poultryDailyLog.findUnique({
+      where: { id: logId },
+    });
+
+    if (!log) return;
+
+    await prisma.$transaction([
+      // Si tuvo bajas, se devuelven al lote
+      prisma.poultryBatch.update({
+        where: { id: log.batchId },
+        data: {
+          currentQuantity: {
+            increment: log.mortalityCount,
+          },
+        },
+      }),
+      prisma.poultryDailyLog.delete({
+        where: { id: logId },
+      }),
+    ]);
+
+    revalidatePath('/pollos');
+  } catch (error) {
+    console.error('Error al eliminar registro diario:', error);
+  }
+}
+// Registrar Saca Parcial o Venta
+export async function addPoultrySale(formData: FormData) {
+  try {
+    const batchId = formData.get('batchId') as string;
+    const birdsSold = parseInt(formData.get('birdsSold') as string || '0', 10);
+    const saleType = (formData.get('saleType') as string) || 'EN_PIE';
+    const totalWeight = parseFloat(formData.get('totalWeight') as string || '0');
+    const totalPrice = parseFloat(formData.get('totalPrice') as string || '0');
+    const customer = (formData.get('customer') as string) || '';
+    const notes = (formData.get('notes') as string) || '';
+
+    if (!batchId || birdsSold <= 0) return;
+
+    await prisma.$transaction([
+      // 1. Guardar la venta
+      prisma.poultrySale.create({
+        data: {
+          batchId,
+          birdsSold,
+          saleType,
+          totalWeight: isNaN(totalWeight) ? 0 : totalWeight,
+          totalPrice: isNaN(totalPrice) ? 0 : totalPrice,
+          customer: customer || null,
+          notes: notes || null,
+        },
+      }),
+      // 2. Descontar las aves vivas del lote
+      prisma.poultryBatch.update({
+        where: { id: batchId },
+        data: {
+          currentQuantity: {
+            decrement: birdsSold,
+          },
+        },
+      }),
+    ]);
+
+    revalidatePath('/pollos');
+  } catch (error) {
+    console.error('Error al registrar saca parcial:', error);
+  }
+}
+
+// Eliminar Saca y Devolver Aves al Galpón
+export async function deletePoultrySale(saleId: string) {
+  try {
+    const sale = await prisma.poultrySale.findUnique({
+      where: { id: saleId },
+    });
+
+    if (!sale) return;
+
+    await prisma.$transaction([
+      prisma.poultryBatch.update({
+        where: { id: sale.batchId },
+        data: {
+          currentQuantity: {
+            increment: sale.birdsSold,
+          },
+        },
+      }),
+      prisma.poultrySale.delete({
+        where: { id: saleId },
+      }),
+    ]);
+
+    revalidatePath('/pollos');
+  } catch (error) {
+    console.error('Error al eliminar venta:', error);
+  }
+}
+
+// Liquidar y Cerrar Lote Definitivamente
+export async function closePoultryBatch(batchId: string) {
+  try {
+    await prisma.poultryBatch.update({
+      where: { id: batchId },
+      data: {
+        status: 'LIQUIDADO',
+        endDate: new Date(),
+      },
+    });
+
+    revalidatePath('/pollos');
+    revalidatePath('/');
+  } catch (error) {
+    console.error('Error al liquidar lote:', error);
+  }
+}
+
+// Reabrir Lote (por si se liquidó por error)
+export async function reopenPoultryBatch(batchId: string) {
+  try {
+    await prisma.poultryBatch.update({
+      where: { id: batchId },
+      data: {
+        status: 'EN_ENGORDE',
+        endDate: null,
+      },
+    });
+
+    revalidatePath('/pollos');
+    revalidatePath('/');
+  } catch (error) {
+    console.error('Error al reabrir lote:', error);
   }
 }

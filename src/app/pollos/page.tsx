@@ -2,16 +2,21 @@ export const instant = false;
 
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { Egg, ArrowLeft, PlusCircle, Activity, AlertCircle, Calendar } from 'lucide-react';
+import { Egg, ArrowLeft, PlusCircle, AlertCircle, Calendar } from 'lucide-react';
 import { createPoultryBatch } from './actions';
 import { DailyLogForm } from './DailyLogForm';
 import { BatchHistoryModal } from './BatchHistoryModal';
+import { EditBatchModal } from './EditBatchModal';
+import { PoultrySalesModal } from './PoultrySalesModal';
 
 export default async function PollosPage() {
   const batches = await prisma.poultryBatch.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
       dailyLogs: {
+        orderBy: { date: 'desc' },
+      },
+      sales: {
         orderBy: { date: 'desc' },
       },
     },
@@ -34,7 +39,7 @@ export default async function PollosPage() {
                 <Egg className="w-5 h-5 text-amber-600" />
                 Avicultura (Pollos de Engorde)
               </h1>
-              <p className="text-xs text-slate-500">Control de lotes, marcas de alimento, inversión y mortalidad</p>
+              <p className="text-xs text-slate-500">Control de lotes, sacas parciales, inversión y liquidación</p>
             </div>
           </div>
         </div>
@@ -54,7 +59,7 @@ export default async function PollosPage() {
                 <input
                   type="text"
                   name="batchCode"
-                  placeholder="Ej: LOTE-1, LOTE-2, LOTE-3"
+                  placeholder="Ej: LOTE-1, LOTE-2"
                   required
                   className="w-full text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
@@ -108,7 +113,7 @@ export default async function PollosPage() {
 
         {/* Listado de Lotes de Engorde */}
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-lg font-bold text-slate-900">Lotes en Producción</h2>
+          <h2 className="text-lg font-bold text-slate-900">Lotes Registrados</h2>
 
           {batches.length === 0 ? (
             <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
@@ -118,16 +123,18 @@ export default async function PollosPage() {
             </div>
           ) : (
             batches.map((batch) => {
-              const mortalitySum = batch.initialQuantity - batch.currentQuantity;
-              const mortalityRate = ((mortalitySum / batch.initialQuantity) * 100).toFixed(1);
+              // Cálculo de bajas reales (excluyendo las aves que ya se vendieron/sacaron)
+              const totalMortality = batch.dailyLogs.reduce((acc, log) => acc + log.mortalityCount, 0);
+              const totalSold = batch.sales.reduce((acc, s) => acc + s.birdsSold, 0);
+              const mortalityRate = ((totalMortality / batch.initialQuantity) * 100).toFixed(1);
 
               const start = new Date(batch.startDate).getTime();
-              const now = new Date().getTime();
-              const diffDays = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+              const end = batch.endDate ? new Date(batch.endDate).getTime() : new Date().getTime();
+              const diffDays = Math.max(0, Math.floor((end - start) / (1000 * 60 * 60 * 24)));
 
               const totalFeedServed = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedKgServed), 0);
               const totalFeedCost = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedCost || 0), 0);
-              const totalInvestment = Number(batch.chickCostTotal) + totalFeedCost;
+              const totalCost = Number(batch.chickCostTotal) + totalFeedCost;
 
               return (
                 <div key={batch.id} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
@@ -137,15 +144,31 @@ export default async function PollosPage() {
                         <h3 className="text-base font-bold text-slate-900">{batch.batchCode}</h3>
                         <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          Día {diffDays}
+                          {batch.status === 'EN_ENGORDE' ? `Día ${diffDays}` : `Ciclo cerrado en ${diffDays} días`}
                         </span>
+                        {/* Botón de Edición del Lote */}
+                        <EditBatchModal
+                          batch={{
+                            id: batch.id,
+                            batchCode: batch.batchCode,
+                            startDate: batch.startDate.toISOString(),
+                            initialQuantity: batch.initialQuantity,
+                            chickCostTotal: Number(batch.chickCostTotal),
+                          }}
+                        />
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
                         Ingresó: {new Date(batch.startDate).toLocaleDateString()}
                       </p>
                     </div>
-                    <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                      {batch.status}
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                        batch.status === 'EN_ENGORDE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-slate-100 text-slate-700 border-slate-300'
+                      }`}
+                    >
+                      {batch.status === 'EN_ENGORDE' ? 'EN ENGORDE' : 'LIQUIDADO'}
                     </span>
                   </div>
 
@@ -156,39 +179,59 @@ export default async function PollosPage() {
                       <p className="text-base font-bold text-slate-900">
                         {batch.currentQuantity} <span className="text-xs font-normal text-slate-400">/ {batch.initialQuantity}</span>
                       </p>
+                      {totalSold > 0 && (
+                        <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+                          ({totalSold} sacados)
+                        </span>
+                      )}
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <span className="text-xs text-slate-500">Mortalidad</span>
                       <p className="text-base font-bold text-rose-600">
-                        {mortalitySum} <span className="text-xs font-normal">({mortalityRate}%)</span>
+                        {totalMortality} <span className="text-xs font-normal">({mortalityRate}%)</span>
                       </p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <span className="text-xs text-slate-500">Alimento Total</span>
-                      <p className="text-base font-bold text-slate-900">{totalFeedServed.toFixed(1)} <span className="text-xs font-normal text-slate-500">Kg</span></p>
+                      <p className="text-base font-bold text-slate-900">
+                        {totalFeedServed.toFixed(1)} <span className="text-xs font-normal text-slate-500">Kg</span>
+                      </p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <span className="text-xs text-slate-500">Gasto Alimento</span>
                       <p className="text-base font-bold text-amber-700">${totalFeedCost.toLocaleString('es-CO')}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <span className="text-xs text-slate-500">Inversión Acumulada</span>
-                      <p className="text-base font-bold text-slate-900">${totalInvestment.toLocaleString('es-CO')}</p>
+                      <span className="text-xs text-slate-500">Costo Acumulado</span>
+                      <p className="text-base font-bold text-slate-900">${totalCost.toLocaleString('es-CO')}</p>
                     </div>
                   </div>
 
-                  {/* Formulario de Novedad Diaria */}
+                  {/* Formulario de Novedad Diaria (solo si sigue activo) */}
                   {batch.status === 'EN_ENGORDE' && (
-                    <div className="pt-2 border-t border-slate-100">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                        <Activity className="w-4 h-4 text-amber-600" />
-                        Registrar Consumo y Bajas del Día
-                      </h4>
-                      <DailyLogForm batchId={batch.id} />
-                    </div>
+                    <DailyLogForm batchId={batch.id} />
                   )}
 
-                  {/* Historial con fechas y costos serializados */}
+                  {/* Módulo de Sacas Parciales y Liquidación */}
+                  <PoultrySalesModal
+                    batchId={batch.id}
+                    batchCode={batch.batchCode}
+                    currentQuantity={batch.currentQuantity}
+                    status={batch.status}
+                    totalCost={totalCost}
+                    sales={batch.sales.map((s) => ({
+                      id: s.id,
+                      date: s.date.toISOString(),
+                      birdsSold: s.birdsSold,
+                      saleType: s.saleType,
+                      totalWeight: Number(s.totalWeight),
+                      totalPrice: Number(s.totalPrice),
+                      customer: s.customer,
+                      notes: s.notes,
+                    }))}
+                  />
+
+                  {/* Historial de Consumos y Bajas */}
                   <BatchHistoryModal
                     logs={batch.dailyLogs.map((log) => ({
                       id: log.id,

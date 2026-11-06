@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { History, ChevronDown, ChevronUp, Calendar, AlertCircle } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { History, ChevronDown, ChevronUp, Calendar, AlertCircle, Trash2 } from 'lucide-react';
+import { deleteDailyLog } from './actions';
 
 export interface DailyLogItem {
   id: string;
@@ -18,11 +19,20 @@ interface BatchHistoryModalProps {
   batchCode: string;
 }
 
-export function BatchHistoryModal({ logs, batchCode }: BatchHistoryModalProps) {
+export function BatchHistoryModal({ logs }: BatchHistoryModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const handleDelete = (id: string) => {
+    if (confirm('¿Seguro que deseas eliminar este registro? Si tenía bajas, se devolverán al lote.')) {
+      startTransition(async () => {
+        await deleteDailyLog(id);
+      });
+    }
+  };
 
   return (
-    <div className="pt-3 border-t border-slate-100">
+    <div className="pt-2">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -40,7 +50,7 @@ export function BatchHistoryModal({ logs, batchCode }: BatchHistoryModalProps) {
       </button>
 
       {isOpen && (
-        <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-inner">
           {logs.length === 0 ? (
             <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
               <AlertCircle className="w-4 h-4 text-slate-400" />
@@ -56,6 +66,7 @@ export function BatchHistoryModal({ logs, batchCode }: BatchHistoryModalProps) {
                     <th className="py-2 px-3">Alimento</th>
                     <th className="py-2 px-3">Gasto ($)</th>
                     <th className="py-2 px-3">Detalle</th>
+                    <th className="py-2 px-3 text-center">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -64,12 +75,11 @@ export function BatchHistoryModal({ logs, batchCode }: BatchHistoryModalProps) {
                     const formattedDate = logDate.toLocaleDateString('es-CO', {
                       day: '2-digit',
                       month: 'short',
-                      year: 'numeric',
                     });
 
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/80 transition">
-                        <td className="py-2 px-3 font-medium text-slate-700 whitespace-nowrap flex items-center gap-1.5">
+                        <td className="py-2 px-3 font-medium text-slate-700 whitespace-nowrap flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           {formattedDate}
                         </td>
@@ -88,8 +98,19 @@ export function BatchHistoryModal({ logs, batchCode }: BatchHistoryModalProps) {
                         <td className="py-2 px-3 font-semibold text-amber-700">
                           ${log.feedCost > 0 ? log.feedCost.toLocaleString('es-CO') : '0'}
                         </td>
-                        <td className="py-2 px-3 text-slate-500 max-w-[200px] truncate">
+                        <td className="py-2 px-3 text-slate-500 max-w-[160px] truncate" title={log.notes || ''}>
                           {log.notes || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleDelete(log.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
+                            title="Eliminar este registro"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );

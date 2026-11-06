@@ -72,17 +72,18 @@ model FarmSupplyMovement {
 // 1. MÓDULO AVICULTURA (POLLOS DE ENGORDE)
 // ====================================================
 model PoultryBatch {
-  id              String   @id @default(uuid())
-  batchCode       String   @unique // Ej: "LOTE-P-NOV26"
-  startDate       DateTime
-  initialQuantity Int      // Cantidad de pollitos que entraron
-  currentQuantity Int      // Vivos actuales
-  chickCostTotal  Decimal  @db.Decimal(10, 2) // Inversión en pie de cría
-  status          String   @default("EN_ENGORDE") // "EN_ENGORDE", "FINALIZADO"
-  createdAt       DateTime @default(now())
-
+  id              String            @id @default(uuid())
+  batchCode       String            @unique
+  startDate       DateTime          @default(now())
+  endDate         DateTime?         
+  initialQuantity Int
+  currentQuantity Int
+  chickCostTotal  Decimal           @default(0) @db.Decimal(10, 2)
+  status          String            @default("EN_ENGORDE")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @default(now()) @updatedAt // <--- Añade @default(now()) aquí
   dailyLogs       PoultryDailyLog[]
-  sales           PoultrySale[]
+  sales           PoultrySale[]     
 }
 
 model PoultryDailyLog {
@@ -98,17 +99,17 @@ model PoultryDailyLog {
 }
 
 model PoultrySale {
-  id             String       @id @default(uuid())
-  batchId        String
-  batch          PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date           DateTime     @default(now())
-  saleType       String       @default("CANAL") // "CANAL" o "EN_PIE"
-  quantityUnits  Int          // Cantidad de aves
-  totalWeightKg  Decimal      @db.Decimal(10, 2)
-  pricePerKg     Decimal      @db.Decimal(10, 2)
-  totalAmount    Decimal      @db.Decimal(10, 2)
-  customerName   String?
-  isPaid         Boolean      @default(true)
+  id          String       @id @default(uuid())
+  batchId     String
+  batch       PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date        DateTime     @default(now())
+  birdsSold   Int          // Cantidad de pollos sacados/sacrificados
+  saleType    String       @default("EN_PIE") // "EN_PIE" o "CANAL"
+  totalWeight Decimal      @default(0) @db.Decimal(10, 2) // Kilos totales pesados
+  totalPrice  Decimal      @default(0) @db.Decimal(10, 2) // Dinero total recibido ($)
+  customer    String?      // Cliente o destino (Ej: Distribuidor Santa Marta, Venta Local, etc.)
+  notes       String?
+  createdAt   DateTime     @default(now())
 }
 
 // ====================================================

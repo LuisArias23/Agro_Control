@@ -1,169 +1,215 @@
-import Link from 'next/link';
-import { Package, ArrowRight } from 'lucide-react';
-import { prisma } from '@/lib/prisma';
-
 export const instant = false;
 
-export default async function HomePage() {
-  // Consultas directas a base de datos en tiempo real
-  const [activePoultryCount, activeLayersCount, activeFishCount, activeSwineCount] = await Promise.all([
-    prisma.poultryBatch.count({ where: { status: 'EN_ENGORDE' } }),
-    prisma.layerBatch.count({ where: { status: 'EN_POSTURA' } }).catch(() => 0),
-    prisma.fishBatch.count({ where: { status: 'ENGORDE' } }).catch(() => 0),
-    prisma.swineBatch.count({ where: { status: 'EN_CEBA' } }).catch(() => 0),
-  ]);
+import { prisma } from '@/lib/prisma';
+import Link from 'next/link';
+import { Egg, ArrowLeft, PlusCircle, AlertCircle, Calendar } from 'lucide-react';
+import { createPoultryBatch } from '../app/pollos/actions';
+import { DailyLogForm } from '../app/pollos/DailyLogForm';
+import { BatchHistoryModal } from '../app/pollos/BatchHistoryModal';
+import { EditBatchModal } from '../app/pollos/EditBatchModal';
 
-  const businessModules = [
-    {
-      title: 'Pollos de Engorde',
-      badge: activePoultryCount > 0 
-        ? `${activePoultryCount} Lote${activePoultryCount > 1 ? 's' : ''} Activo${activePoultryCount > 1 ? 's' : ''}` 
-        : 'Sin lotes activos',
-      badgeColor: activePoultryCount > 0 
-        ? 'bg-amber-100/90 text-amber-900 border-amber-300' 
-        : 'bg-slate-100/90 text-slate-600 border-slate-300',
-      description: 'Control de días de ciclo, consumo en bultos/kilos (Italcol/Finca), bajas y costo acumulado.',
-      href: '/pollos',
-      image: '/modules/pollos.jfif',
+export default async function PollosPage() {
+  const batches = await prisma.poultryBatch.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      dailyLogs: {
+        orderBy: { date: 'desc' },
+      },
     },
-    {
-      title: 'Gallinas Ponedoras',
-      badge: activeLayersCount > 0 
-        ? `${activeLayersCount} Lote${activeLayersCount > 1 ? 's' : ''} en Postura` 
-        : 'Sin postura activa',
-      badgeColor: activeLayersCount > 0 
-        ? 'bg-amber-100/90 text-amber-900 border-amber-300' 
-        : 'bg-slate-100/90 text-slate-600 border-slate-300',
-      description: 'Recolección diaria de huevos comerciales, huevos rotos, % postura y bajas del lote.',
-      href: '/ponedoras',
-      image: '/modules/ponedoras.jfif',
-    },
-    {
-      title: 'Piscicultura (Peces)',
-      badge: activeFishCount > 0 
-        ? `${activeFishCount} Estanque${activeFishCount > 1 ? 's' : ''} Activo${activeFishCount > 1 ? 's' : ''}` 
-        : 'Estanques inactivos',
-      badgeColor: activeFishCount > 0 
-        ? 'bg-sky-100/90 text-sky-900 border-sky-300' 
-        : 'bg-slate-100/90 text-slate-600 border-slate-300',
-      description: 'Estanques de geomembrana, control de biomasa estimada, muestreos de peso en gramos y cosechas.',
-      href: '/peces',
-      image: '/modules/peces.jfif',
-    },
-    {
-      title: 'Porcicultura (Cerdos)',
-      badge: activeSwineCount > 0 
-        ? `${activeSwineCount} Lote${activeSwineCount > 1 ? 's' : ''} en Ceba` 
-        : 'Sin ceba activa',
-      badgeColor: activeSwineCount > 0 
-        ? 'bg-rose-100/90 text-rose-900 border-rose-300' 
-        : 'bg-slate-100/90 text-slate-600 border-slate-300',
-      description: 'Lotes de ceba, control de bultos de concentrado, gastos de flete/veterinaria y ventas en pie/canal.',
-      href: '/cerdos',
-      image: '/modules/cerdos.jfif',
-    },
-  ];
+  });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
-      {/* Cabecera Superior */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-12">
+      {/* Cabecera */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white font-black text-sm flex items-center justify-center shadow-sm">
-              AC
-            </div>
+            <Link
+              href="/"
+              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
             <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">AgroControl</h1>
-              <p className="text-[11px] text-slate-500">Gestión Integral Agropecuaria</p>
+              <h1 className="text-lg font-bold flex items-center gap-2">
+                <Egg className="w-5 h-5 text-amber-600" />
+                Avicultura (Pollos de Engorde)
+              </h1>
+              <p className="text-xs text-slate-500">Control de lotes, marcas de alimento, inversión y mortalidad</p>
             </div>
           </div>
-
-          <Link
-            href="/inventario"
-            className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition"
-          >
-            <Package className="w-4 h-4 text-emerald-700" />
-            Bodega de Insumos
-          </Link>
         </div>
       </header>
 
-      {/* Contenido Principal */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900">Panel de Operaciones</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Selecciona la unidad productiva para ingresar registros diarios o consultar balances.
-          </p>
-        </div>
-
-        {/* Cuadrícula de 4 Módulos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {businessModules.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition duration-200 flex flex-col justify-between"
-            >
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Formulario Registro Nuevo Lote */}
+        <div className="lg:col-span-1">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm sticky top-24">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
+              <PlusCircle className="w-5 h-5 text-amber-600" />
+              Ingresar Lote de Engorde
+            </h2>
+            <form action={createPoultryBatch} className="space-y-4">
               <div>
-                {/* Imagen del Módulo con badge */}
-                <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Identificador del Lote</label>
+                <input
+                  type="text"
+                  name="batchCode"
+                  placeholder="Ej: LOTE-1, LOTE-2, LOTE-3"
+                  required
+                  className="w-full text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Entrada al Galpón</label>
+                <input
+                  type="date"
+                  name="startDate"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                  required
+                  className="w-full text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Cantidad Pollitos</label>
+                  <input
+                    type="number"
+                    name="initialQuantity"
+                    placeholder="100"
+                    min="1"
+                    required
+                    className="w-full text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                  <span
-                    className={`absolute top-3 right-3 text-[11px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md shadow-sm ${item.badgeColor}`}
-                  >
-                    {item.badge}
-                  </span>
                 </div>
-
-                {/* Título y Descripción */}
-                <div className="p-4 space-y-2">
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition">
-                    {item.title}
-                  </h3>
-                  <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">
-                    {item.description}
-                  </p>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Costo Total ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="chickCostTotal"
+                    placeholder="Inversión inicial"
+                    required
+                    className="w-full text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
                 </div>
               </div>
 
-              {/* Botón Entrar inferior */}
-              <div className="p-4 pt-0">
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-end text-xs">
-                  <span className="text-xs font-bold text-emerald-700 flex items-center gap-1 group-hover:translate-x-1 transition duration-150">
-                    Entrar <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
+              <button
+                type="submit"
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-sm mt-2 cursor-pointer"
+              >
+                Guardar Lote
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* Banner Inferior: Bodega Central */}
-        <div className="rounded-2xl bg-[#092c1f] p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm border border-emerald-950">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-800/80 border border-emerald-700 flex items-center justify-center shrink-0">
-              <Package className="w-6 h-6 text-emerald-300" />
+        {/* Listado de Lotes de Engorde */}
+        <div className="lg:col-span-2 space-y-6">
+          <h2 className="text-lg font-bold text-slate-900">Lotes en Producción</h2>
+
+          {batches.length === 0 ? (
+            <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
+              <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm font-medium">Aún no has registrado ningún lote.</p>
+              <p className="text-xs text-slate-400 mt-1">Usa el formulario para cargar los lotes del galpón.</p>
             </div>
-            <div>
-              <h3 className="text-base font-bold">Bodega Central de Concentrados e Insumos</h3>
-              <p className="text-xs text-emerald-200/80 mt-0.5">
-                Control de bultos y kilos por línea (Pollos, Ponedoras, Peces, Cerdos) y alertas de reposición.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/inventario"
-            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 text-xs font-bold rounded-xl transition shrink-0 flex items-center gap-2 shadow-sm"
-          >
-            Gestionar Insumos <ArrowRight className="w-4 h-4" />
-          </Link>
+          ) : (
+            batches.map((batch) => {
+              const mortalitySum = batch.initialQuantity - batch.currentQuantity;
+              const mortalityRate = ((mortalitySum / batch.initialQuantity) * 100).toFixed(1);
+
+              const start = new Date(batch.startDate).getTime();
+              const now = new Date().getTime();
+              const diffDays = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+
+              const totalFeedServed = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedKgServed), 0);
+              const totalFeedCost = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedCost || 0), 0);
+              const totalInvestment = Number(batch.chickCostTotal) + totalFeedCost;
+
+              return (
+                <div key={batch.id} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900">{batch.batchCode}</h3>
+                        <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          Día {diffDays}
+                        </span>
+                        {/* Botón de Edición del Lote */}
+                        <EditBatchModal
+                          batch={{
+                            id: batch.id,
+                            batchCode: batch.batchCode,
+                            startDate: batch.startDate.toISOString(),
+                            initialQuantity: batch.initialQuantity,
+                            chickCostTotal: Number(batch.chickCostTotal),
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Ingresó: {new Date(batch.startDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+                      {batch.status}
+                    </span>
+                  </div>
+
+                  {/* Métricas clave del lote */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="text-xs text-slate-500">Población Viva</span>
+                      <p className="text-base font-bold text-slate-900">
+                        {batch.currentQuantity} <span className="text-xs font-normal text-slate-400">/ {batch.initialQuantity}</span>
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="text-xs text-slate-500">Mortalidad</span>
+                      <p className="text-base font-bold text-rose-600">
+                        {mortalitySum} <span className="text-xs font-normal">({mortalityRate}%)</span>
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="text-xs text-slate-500">Alimento Total</span>
+                      <p className="text-base font-bold text-slate-900">{totalFeedServed.toFixed(1)} <span className="text-xs font-normal text-slate-500">Kg</span></p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="text-xs text-slate-500">Gasto Alimento</span>
+                      <p className="text-base font-bold text-amber-700">${totalFeedCost.toLocaleString('es-CO')}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="text-xs text-slate-500">Inversión Acumulada</span>
+                      <p className="text-base font-bold text-slate-900">${totalInvestment.toLocaleString('es-CO')}</p>
+                    </div>
+                  </div>
+
+                  {/* Formulario de Novedad Diaria (Colapsable / Acordeón) */}
+                  {batch.status === 'EN_ENGORDE' && (
+                    <DailyLogForm batchId={batch.id} />
+                  )}
+
+                  {/* Historial con fechas y botón de eliminar registro */}
+                  <BatchHistoryModal
+                    logs={batch.dailyLogs.map((log) => ({
+                      id: log.id,
+                      date: log.date.toISOString(),
+                      mortalityCount: log.mortalityCount,
+                      feedKgServed: Number(log.feedKgServed),
+                      feedCost: Number(log.feedCost || 0),
+                      feedBrand: log.feedBrand,
+                      notes: log.notes,
+                    }))}
+                    batchCode={batch.batchCode}
+                  />
+                </div>
+              );
+            })
+          )}
         </div>
       </main>
     </div>
