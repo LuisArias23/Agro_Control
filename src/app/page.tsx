@@ -22,7 +22,7 @@ export default async function HomePage() {
         ? 'bg-amber-100/90 text-amber-900 border-amber-300' 
         : 'bg-slate-100/90 text-slate-600 border-slate-300',
       description: 'Control de días de ciclo, consumo en bultos/kilos (Italcol/Finca), bajas y costo acumulado.',
-      href: '/pollos',
+      href: '/avicultura',
       image: '/modules/pollos.jfif',
     },
     {
@@ -46,7 +46,7 @@ export default async function HomePage() {
         ? 'bg-sky-100/90 text-sky-900 border-sky-300' 
         : 'bg-slate-100/90 text-slate-600 border-slate-300',
       description: 'Estanques de geomembrana, control de biomasa estimada, muestreos de peso en gramos y cosechas.',
-      href: '/peces',
+      href: '/piscicultura',
       image: '/modules/peces.jfif',
     },
     {

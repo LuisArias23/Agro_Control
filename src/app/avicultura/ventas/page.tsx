@@ -36,7 +36,7 @@ export default async function PollosVentasPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-           <BackButton href="/pollos" />
+           <BackButton href="/avicultura" />
             <div>
               <h1 className="text-lg font-bold flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-600" />

@@ -25,8 +25,8 @@ export async function createPoultryBatch(formData: FormData) {
       },
     });
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
     revalidatePath('/');
   } catch (error) {
     console.error('Error al crear lote:', error);
@@ -68,9 +68,9 @@ export async function updatePoultryBatch(formData: FormData) {
       },
     });
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
-    revalidatePath('/pollos/historial');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
+    revalidatePath('/avicultura/historial');
     revalidatePath('/');
   } catch (error) {
     console.error('Error al actualizar lote:', error);
@@ -133,8 +133,8 @@ export async function addDailyLog(formData: FormData) {
       }),
     ]);
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
   } catch (error) {
     console.error('Error al registrar novedad diaria:', error);
   }
@@ -163,8 +163,8 @@ export async function deleteDailyLog(logId: string) {
       }),
     ]);
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
   } catch (error) {
     console.error('Error al eliminar registro diario:', error);
   }
@@ -207,8 +207,8 @@ export async function addPoultrySale(formData: FormData) {
       }),
     ]);
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
   } catch (error) {
     console.error('Error al registrar saca parcial:', error);
   }
@@ -237,8 +237,8 @@ export async function deletePoultrySale(saleId: string) {
       }),
     ]);
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
   } catch (error) {
     console.error('Error al eliminar venta:', error);
   }
@@ -252,8 +252,8 @@ export async function markSaleAsPaid(saleId: string) {
       data: { paymentStatus: 'PAGADO' },
     });
 
-    revalidatePath('/pollos/ventas');
-    revalidatePath('/pollos');
+    revalidatePath('/avicultura/ventas');
+    revalidatePath('/avicultura');
   } catch (error) {
     console.error('Error al actualizar estado de pago:', error);
   }
@@ -270,9 +270,9 @@ export async function closePoultryBatch(batchId: string) {
       },
     });
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
-    revalidatePath('/pollos/historial');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
+    revalidatePath('/avicultura/historial');
     revalidatePath('/');
   } catch (error) {
     console.error('Error al liquidar lote:', error);
@@ -290,9 +290,9 @@ export async function reopenPoultryBatch(batchId: string) {
       },
     });
 
-    revalidatePath('/pollos');
-    revalidatePath('/pollos/ventas');
-    revalidatePath('/pollos/historial');
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
+    revalidatePath('/avicultura/historial');
     revalidatePath('/');
   } catch (error) {
     console.error('Error al reabrir lote:', error);

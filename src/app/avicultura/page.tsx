@@ -50,7 +50,7 @@ export default async function PollosPage() {
           {/* Accesos rápidos: Ventas e Historial */}
           <div className="flex items-center gap-2">
             <Link
-              href="/pollos/historial"
+              href="/avicultura/historial"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition"
             >
               <Archive className="w-4 h-4 text-slate-500" />
@@ -58,7 +58,7 @@ export default async function PollosPage() {
             </Link>
 
             <Link
-              href="/pollos/ventas"
+              href="/avicultura/ventas"
               className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg shadow-sm transition"
             >
               <DollarSign className="w-4 h-4" />
