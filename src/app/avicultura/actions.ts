@@ -101,10 +101,11 @@ export async function addDailyLog(formData: FormData) {
 
     const brandLabel = brandNames[feedBrand] || feedBrand;
 
+    // Solo calculamos alimento si es estrictamente > 0
     if (entryMode === 'bultos' && bultos > 0) {
       feedKgServed = bultos * 40;
       detailText = `${bultos} bto(s) ${brandLabel} [${feedStage}]`;
-    } else if (manualKg > 0) {
+    } else if (entryMode === 'kilos' && manualKg > 0) {
       feedKgServed = manualKg;
       detailText = `${manualKg} Kg ${brandLabel} [${feedStage}]`;
     }
@@ -112,25 +113,33 @@ export async function addDailyLog(formData: FormData) {
     const userNotes = (formData.get('notes') as string) || '';
     const finalNotes = [userNotes, detailText].filter(Boolean).join(' - ');
 
+    // Si no hubo bajas ni comida, no guardamos un registro vacío
+    if (mortalityCount <= 0 && feedKgServed <= 0) return;
+
     await prisma.$transaction([
       prisma.poultryDailyLog.create({
         data: {
           batchId,
           mortalityCount: isNaN(mortalityCount) ? 0 : mortalityCount,
-          feedBrand,
+          feedBrand: feedKgServed > 0 ? feedBrand : 'SIN_ALIMENTO',
           feedKgServed: isNaN(feedKgServed) ? 0 : feedKgServed,
-          feedCost: isNaN(feedCost) ? 0 : feedCost,
-          notes: finalNotes || null,
+          feedCost: isNaN(feedCost) ? 0 : (feedKgServed > 0 ? feedCost : 0),
+          notes: finalNotes || (mortalityCount > 0 ? 'Registro de bajas' : null),
         },
       }),
-      prisma.poultryBatch.update({
-        where: { id: batchId },
-        data: {
-          currentQuantity: {
-            decrement: isNaN(mortalityCount) ? 0 : mortalityCount,
-          },
-        },
-      }),
+      // Solo descuenta del lote si hubo bajas
+      ...(mortalityCount > 0
+        ? [
+            prisma.poultryBatch.update({
+              where: { id: batchId },
+              data: {
+                currentQuantity: {
+                  decrement: mortalityCount,
+                },
+              },
+            }),
+          ]
+        : []),
     ]);
 
     revalidatePath('/avicultura');

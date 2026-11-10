@@ -22,19 +22,20 @@ export function DailyLogForm({ batchId }: DailyLogFormProps) {
   const [feedBrand, setFeedBrand] = useState('ITALCOL_DORADA');
   const [feedStage, setFeedStage] = useState('Iniciación');
   const [entryMode, setEntryMode] = useState<'bultos' | 'kilos'>('bultos');
-  const [bultos, setBultos] = useState('1');
+  const [bultos, setBultos] = useState('0'); // Inicia en 0 para no forzar alimento si es solo baja
   const [manualKg, setManualKg] = useState('');
-  const [feedCost, setFeedCost] = useState<string>('125000');
+  const [feedCost, setFeedCost] = useState<string>('0');
 
   useEffect(() => {
     if (entryMode === 'bultos') {
       const pricePerBulto = DEFAULT_BULTO_PRICES[feedBrand] || 115000;
       const bultosNum = parseFloat(bultos) || 0;
-      setFeedCost(Math.round(bultosNum * pricePerBulto).toString());
+      setFeedCost(bultosNum > 0 ? Math.round(bultosNum * pricePerBulto).toString() : '0');
     } else {
-      setFeedCost('');
+      const kgNum = parseFloat(manualKg) || 0;
+      if (kgNum <= 0) setFeedCost('0');
     }
-  }, [feedBrand, entryMode, bultos]);
+  }, [feedBrand, entryMode, bultos, manualKg]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,7 +55,9 @@ export function DailyLogForm({ batchId }: DailyLogFormProps) {
         await addDailyLog(formData);
         setMortality('');
         setManualKg('');
-        setIsOpen(false); // Cierra automáticamente al guardar
+        setBultos('0');
+        setFeedCost('0');
+        setIsOpen(false);
       } catch (err) {
         console.error('Error al guardar novedad:', err);
       }
@@ -66,7 +69,7 @@ export function DailyLogForm({ batchId }: DailyLogFormProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200/60 text-amber-900 rounded-lg text-xs font-bold transition"
+        className="w-full flex items-center justify-between px-3 py-2 bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200/60 text-amber-900 rounded-lg text-xs font-bold transition cursor-pointer"
       >
         <span className="flex items-center gap-1.5">
           <PlusCircle className="w-4 h-4 text-amber-600" />
@@ -142,6 +145,7 @@ export function DailyLogForm({ batchId }: DailyLogFormProps) {
                   onChange={(e) => setBultos(e.target.value)}
                   className="w-full text-xs px-2 py-2 border rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                 >
+                  <option value="0">0 btos (Sin alimento)</option>
                   <option value="0.5">1/2 bto (20 Kg)</option>
                   <option value="1">1 bto (40 Kg)</option>
                   <option value="1.5">1.5 btos (60 Kg)</option>
@@ -153,7 +157,7 @@ export function DailyLogForm({ batchId }: DailyLogFormProps) {
                   step="0.1"
                   value={manualKg}
                   onChange={(e) => setManualKg(e.target.value)}
-                  placeholder="Ej: 5 Kg"
+                  placeholder="0 Kg"
                   min="0"
                   className="w-full text-xs px-2.5 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
                 />
@@ -168,7 +172,7 @@ export function DailyLogForm({ batchId }: DailyLogFormProps) {
                 type="number"
                 value={feedCost}
                 onChange={(e) => setFeedCost(e.target.value)}
-                placeholder="Valor neto"
+                placeholder="0"
                 className="w-full text-xs px-2.5 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white font-semibold text-slate-900"
               />
             </div>
@@ -178,14 +182,14 @@ export function DailyLogForm({ batchId }: DailyLogFormProps) {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg transition"
+              className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded-lg transition shadow-sm flex items-center gap-1.5"
+              className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded-lg transition shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />
               {isPending ? 'Guardando...' : 'Guardar Novedad'}
