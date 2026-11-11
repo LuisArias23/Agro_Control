@@ -210,18 +210,36 @@ model FishSampling {
 }
 
 model FishHarvest {
-  id            String    @id @default(uuid())
-  batchId       String
-  batch         FishBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date          DateTime  @default(now())
-  fishCount     Int
-  totalKg       Decimal   @db.Decimal(10, 2)
-  pricePerKg    Decimal   @default(0) @db.Decimal(10, 2)
-  totalPrice    Decimal   @db.Decimal(10, 2)
-  paymentStatus String    @default("PAGADO")
+  id              String       @id @default(uuid())
+  batchId         String
+  batch           FishBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date            DateTime     @default(now())
+  fishCount       Int          @default(0)
+  totalKg         Decimal      @db.Decimal(10, 2)
+  pricePerKg      Decimal      @default(0) @db.Decimal(10, 2)
+  totalPrice      Decimal      @default(0) @db.Decimal(10, 2)
+  paymentStatus   String       @default("PAGADO")
+  customer        String?
+  notes           String?
+  createdAt       DateTime     @default(now())
+
+  sales           FishSale[]
+}
+
+model FishSale {
+  id            String       @id @default(uuid())
+  harvestId     String?      // Opcional, para saber de qué saca salió
+  harvest       FishHarvest? @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  date          DateTime     @default(now())
+  saleFormat    String       @default("DETAL") // "DETAL" o "MAYOR"
+  kgSold        Decimal      @db.Decimal(10, 2)
+  fishCount     Int?         @default(0)
+  pricePerKg    Decimal      @db.Decimal(10, 2)
+  totalPrice    Decimal      @db.Decimal(10, 2)
+  paymentStatus String       @default("PAGADO") // "PAGADO" o "FIADO"
   customer      String?
   notes         String?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime     @default(now())
 }
 
 // ====================================================
