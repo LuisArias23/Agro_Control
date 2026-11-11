@@ -58,15 +58,15 @@ model FarmSupply {
 }
 
 model FarmSupplyMovement {
-  id           String       @id @default(uuid())
-  supplyId     String
-  supply       FarmSupply   @relation(fields: [supplyId], references: [id], onDelete: Cascade)
-  type         String       // "ENTRADA_COMPRA", "SALIDA_CONSUMO", "AJUSTE"
-  quantity     Decimal      @db.Decimal(10, 2)
-  unitCost     Decimal      @default(0) @db.Decimal(10, 2)
-  totalCost    Decimal      @default(0) @db.Decimal(10, 2)
-  notes        String?
-  createdAt    DateTime     @default(now())
+  id        String     @id @default(uuid())
+  supplyId  String
+  supply    FarmSupply @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  type      String     // "ENTRADA_COMPRA", "SALIDA_CONSUMO", "AJUSTE"
+  quantity  Decimal    @db.Decimal(10, 2)
+  unitCost  Decimal    @default(0) @db.Decimal(10, 2)
+  totalCost Decimal    @default(0) @db.Decimal(10, 2)
+  notes     String?
+  createdAt DateTime   @default(now())
 }
 
 // ====================================================
@@ -82,12 +82,12 @@ model PoultryBatch {
   chickCostTotal  Decimal           @default(0) @db.Decimal(10, 2)
   status          String            @default("EN_ENGORDE") // "EN_ENGORDE" o "LIQUIDADO"
   
-  // Equipos asignados al lote en galpón
-  feedersCount    Int               @default(0) // Comederos (tolvas / bandejas)
-  drinkersCount   Int               @default(0) // Bebederos (campana / galón / niple)
+  feedersCount    Int               @default(0) // Comederos asignados
+  drinkersCount   Int               @default(0) // Bebederos asignados
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @default(now()) @updatedAt
+
   dailyLogs       PoultryDailyLog[]
   sales           PoultrySale[]
   samplings       PoultrySampling[]
@@ -121,21 +121,45 @@ model PoultrySale {
   createdAt     DateTime     @default(now())
 }
 
+model PoultrySampling {
+  id             String       @id @default(uuid())
+  batchId        String
+  batch          PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date           DateTime     @default(now())
+  sampleBirds    Int          @default(10)
+  avgWeightGrams Decimal      @db.Decimal(10, 2)
+  notes          String?
+  createdAt      DateTime     @default(now())
+}
+
+model PoultryTreatment {
+  id             String       @id @default(uuid())
+  batchId        String
+  batch          PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date           DateTime     @default(now())
+  productName    String
+  treatmentType  String       @default("VITAMINA") // "VACUNA", "VITAMINA", "ANTIBIOTICO", "DESPARASITANTE"
+  dose           String?
+  withdrawalDays Int          @default(0)
+  notes          String?
+  createdAt      DateTime     @default(now())
+}
+
 // ====================================================
 // 1.1 MÓDULO GALLINAS PONEDORAS (POSTURA Y HUEVOS)
 // ====================================================
 model LayerBatch {
-  id              String   @id @default(uuid())
-  batchCode       String   @unique
-  startDate       DateTime
-  initialHens     Int
-  currentHens     Int
-  costTotal       Decimal  @default(0) @db.Decimal(10, 2)
-  status          String   @default("EN_POSTURA")
-  createdAt       DateTime @default(now())
+  id          String   @id @default(uuid())
+  batchCode   String   @unique
+  startDate   DateTime
+  initialHens Int
+  currentHens Int
+  costTotal   Decimal  @default(0) @db.Decimal(10, 2)
+  status      String   @default("EN_POSTURA")
+  createdAt   DateTime @default(now())
 
-  eggLogs         LayerDailyLog[]
-  sales           LayerEggSale[]
+  eggLogs     LayerDailyLog[]
+  sales       LayerEggSale[]
 }
 
 model LayerDailyLog {
@@ -151,50 +175,51 @@ model LayerDailyLog {
 }
 
 model LayerEggSale {
-  id             String     @id @default(uuid())
-  batchId        String
-  batch          LayerBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date           DateTime   @default(now())
-  panalesSold    Decimal    @default(0) @db.Decimal(10, 2)
-  unitsSold      Int        @default(0)
-  totalAmount    Decimal    @db.Decimal(10, 2)
-  customerName   String?
-  isPaid         Boolean    @default(true)
+  id           String     @id @default(uuid())
+  batchId      String
+  batch        LayerBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date         DateTime   @default(now())
+  panalesSold  Decimal    @default(0) @db.Decimal(10, 2)
+  unitsSold    Int        @default(0)
+  totalAmount  Decimal    @db.Decimal(10, 2)
+  customerName String?
+  isPaid       Boolean    @default(true)
 }
 
 // ====================================================
 // 2. MÓDULO PISCICULTURA (ESTANQUES Y PECES)
 // ====================================================
 model FishBatch {
-  id               String          @id @default(uuid())
-  pondCode         String          @unique
-  species          String          @default("TILAPIA_ROJA")
-  startDate        DateTime        @default(now())
+  id               String         @id @default(uuid())
+  pondCode         String         @unique
+  species          String         @default("TILAPIA_ROJA")
+  startDate        DateTime       @default(now())
   endDate          DateTime?
   initialQuantity  Int
   currentQuantity  Int
-  seedCostTotal    Decimal         @default(0) @db.Decimal(10, 2)
-  currentAvgWeight Decimal         @default(0) @db.Decimal(10, 2)
-  status           String          @default("ENGORDE")
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @default(now()) @updatedAt
+  seedCostTotal    Decimal        @default(0) @db.Decimal(10, 2)
+  currentAvgWeight Decimal        @default(0) @db.Decimal(10, 2)
+  status           String         @default("ENGORDE")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
+
   dailyLogs        FishDailyLog[]
   samplings        FishSampling[]
   harvests         FishHarvest[]
 }
 
 model FishDailyLog {
-  id                String    @id @default(uuid())
-  batchId           String
-  batch             FishBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date              DateTime  @default(now())
-  mortalityCount    Int       @default(0)
-  feedBrand         String?
-  proteinPercentage Int?
-  feedKgServed      Decimal   @default(0) @db.Decimal(10, 2)
-  feedCost          Decimal   @default(0) @db.Decimal(10, 2)
-  notes             String?
-  createdAt         DateTime  @default(now())
+  id                 String    @id @default(uuid())
+  batchId            String
+  batch              FishBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date               DateTime  @default(now())
+  mortalityCount     Int       @default(0)
+  feedBrand          String?
+  proteinPercentage  Int?
+  feedKgServed       Decimal   @default(0) @db.Decimal(10, 2)
+  feedCost           Decimal   @default(0) @db.Decimal(10, 2)
+  notes              String?
+  createdAt          DateTime  @default(now())
 }
 
 model FishSampling {
@@ -210,107 +235,134 @@ model FishSampling {
 }
 
 model FishHarvest {
-  id              String       @id @default(uuid())
-  batchId         String
-  batch           FishBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date            DateTime     @default(now())
-  fishCount       Int          @default(0)
-  totalKg         Decimal      @db.Decimal(10, 2)
-  pricePerKg      Decimal      @default(0) @db.Decimal(10, 2)
-  totalPrice      Decimal      @default(0) @db.Decimal(10, 2)
-  paymentStatus   String       @default("PAGADO")
-  customer        String?
-  notes           String?
-  createdAt       DateTime     @default(now())
+  id            String     @id @default(uuid())
+  batchId       String
+  batch         FishBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date          DateTime   @default(now())
+  fishCount     Int        @default(0)
+  totalKg       Decimal    @db.Decimal(10, 2)
+  pricePerKg    Decimal    @default(0) @db.Decimal(10, 2)
+  totalPrice    Decimal    @default(0) @db.Decimal(10, 2)
+  paymentStatus String     @default("PAGADO")
+  customer      String?
+  notes         String?
+  createdAt     DateTime   @default(now())
 
-  sales           FishSale[]
+  sales         FishSale[]
 }
 
 model FishSale {
   id            String       @id @default(uuid())
-  harvestId     String?      // Opcional, para saber de qué saca salió
+  harvestId     String?
   harvest       FishHarvest? @relation(fields: [harvestId], references: [id], onDelete: SetNull)
   date          DateTime     @default(now())
-  saleFormat    String       @default("DETAL") // "DETAL" o "MAYOR"
+  saleFormat    String       @default("DETAL")
   kgSold        Decimal      @db.Decimal(10, 2)
   fishCount     Int?         @default(0)
   pricePerKg    Decimal      @db.Decimal(10, 2)
   totalPrice    Decimal      @db.Decimal(10, 2)
-  paymentStatus String       @default("PAGADO") // "PAGADO" o "FIADO"
+  paymentStatus String       @default("PAGADO")
   customer      String?
   notes         String?
   createdAt     DateTime     @default(now())
 }
 
 // ====================================================
-// 3. MÓDULO PORCICULTURA (CERDOS)
+// 3. MÓDULO PORCICULTURA (CRÍA, DESTETE Y CEBA)
 // ====================================================
+
+enum SwineStage {
+  CRIA_REPRODUCCION // Cerdas de cría / parideras
+  DESTETE_PRECEBO   // Lechones recién destetados en transición
+  CEBA_ENGORDE      // Cerdos en engorde final
+}
+
+model SwineSow {
+  id              String       @id @default(uuid())
+  code            String       @unique // Ej: CERDA-01, "La Manchada"
+  breed           String?      // Ej: Landrace, Pietrain, F1
+  status          String       @default("VACIA") // "VACIA", "GESTANTE", "LACTANDO", "DESCARTADA"
+  entryDate       DateTime     @default(now())
+  notes           String?
+  createdAt       DateTime     @default(now())
+
+  farrowings      SwineFarrowing[]
+}
+
+model SwineFarrowing {
+  id              String       @id @default(uuid())
+  sowId           String
+  sow             SwineSow     @relation(fields: [sowId], references: [id], onDelete: Cascade)
+  matingDate      DateTime?    // Fecha de monta / inseminación
+  expectedDate    DateTime?    // Fecha calculada (+114 días)
+  farrowingDate   DateTime?    // Fecha real de parto
+  bornAlive       Int          @default(0) // Nacidos vivos
+  bornDead        Int          @default(0) // Nacidos muertos / momias
+  weanedCount     Int?         @default(0) // Lechones logrados al destete
+  weaningDate     DateTime?    // Fecha del destete
+  weaningAvgWeight Decimal?    @db.Decimal(10, 2) // Peso promedio al destetar (Kg)
+  notes           String?
+  createdAt       DateTime     @default(now())
+}
+
 model SwineBatch {
-  id              String   @id @default(uuid())
-  batchCode       String   @unique
-  startDate       DateTime
-  pigCount        Int
-  initialWeightKg Decimal? @db.Decimal(10, 2)
-  purchaseCost    Decimal  @default(0) @db.Decimal(10, 2)
-  status          String   @default("EN_CEBA")
-  createdAt       DateTime @default(now())
+  id                String            @id @default(uuid())
+  batchCode         String            @unique // Ej: PRECEBO-LOTE-1 o CEBA-CORRAL-2
+  stage             SwineStage        @default(CEBA_ENGORDE)
+  startDate         DateTime          @default(now())
+  endDate           DateTime?
+  initialQuantity   Int
+  currentQuantity   Int
+  initialAvgWeight  Decimal           @default(10) @db.Decimal(10, 2)
+  currentAvgWeight  Decimal           @default(10) @db.Decimal(10, 2)
+  purchaseCostTotal Decimal           @default(0) @db.Decimal(10, 2) // $0 si son nacidos en granja
+  origin            String            @default("GRANJA") // "GRANJA" o "COMPRA_EXTERNA"
+  status            String            @default("ACTIVO") // "ACTIVO" o "LIQUIDADO"
 
-  feedLogs        SwineFeedLog[]
-  expenses        SwineExpense[]
-  sales           SwineSale[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @default(now()) @updatedAt
+
+  dailyLogs         SwineDailyLog[]
+  samplings         SwineSampling[]
+  sales             SwineSale[]
 }
 
-model SwineFeedLog {
+model SwineDailyLog {
   id             String     @id @default(uuid())
   batchId        String
   batch          SwineBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   date           DateTime   @default(now())
-  feedKgServed   Decimal    @db.Decimal(10, 2)
-  feedName       String?
+  mortalityCount Int        @default(0)
+  feedPhase      String?    // "PREINICIACION", "INICIACION", "LEVANTE", "ENGORDE"
+  feedKgServed   Decimal    @default(0) @db.Decimal(10, 2)
+  feedCost       Decimal    @default(0) @db.Decimal(10, 2)
+  notes          String?
+  createdAt      DateTime   @default(now())
 }
 
-model SwineExpense {
-  id             String     @id @default(uuid())
-  batchId        String
-  batch          SwineBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date           DateTime   @default(now())
-  concept        String
-  amount         Decimal    @db.Decimal(10, 2)
+model SwineSampling {
+  id          String     @id @default(uuid())
+  batchId     String
+  batch       SwineBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date        DateTime   @default(now())
+  sampleCount Int        @default(5)
+  avgWeightKg Decimal    @db.Decimal(10, 2)
+  notes       String?
+  createdAt   DateTime   @default(now())
 }
 
 model SwineSale {
-  id             String     @id @default(uuid())
-  batchId        String
-  batch          SwineBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date           DateTime   @default(now())
-  saleFormat     String
-  quantityPigs   Int
-  totalWeightKg  Decimal    @db.Decimal(10, 2)
-  pricePerKg     Decimal    @db.Decimal(10, 2)
-  totalAmount    Decimal    @db.Decimal(10, 2)
-  customerName   String?
-  notes          String?
-}
-model PoultrySampling {
-  id              String       @id @default(uuid())
-  batchId         String
-  batch           PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date            DateTime     @default(now())
-  sampleBirds     Int          @default(10) // Cantidad de aves muestreadas
-  avgWeightGrams  Decimal      @db.Decimal(10, 2) // Peso promedio por pollo en gramos
-  notes           String?
-  createdAt       DateTime     @default(now())
-}
-
-model PoultryTreatment {
-  id              String       @id @default(uuid())
-  batchId         String
-  batch           PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date            DateTime     @default(now())
-  productName     String       // Ej: Complejo B + Electrolitos, Enrofloxacina, Newcastle
-  treatmentType   String       @default("VITAMINA") // "VACUNA", "VITAMINA", "ANTIBIOTICO", "DESPARASITANTE"
-  dose            String?      // Ej: 1g por litro
-  withdrawalDays  Int          @default(0) // Días de retiro para consumo humano
-  notes           String?
-  createdAt       DateTime     @default(now())
+  id            String     @id @default(uuid())
+  batchId       String
+  batch         SwineBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date          DateTime   @default(now())
+  pigsSold      Int        @default(1)
+  totalWeightKg Decimal    @db.Decimal(10, 2)
+  pricePerKg    Decimal    @db.Decimal(10, 2)
+  totalPrice    Decimal    @db.Decimal(10, 2)
+  saleType      String     @default("EN_PIE") // "LECHON_DESTETADO", "EN_PIE", "CANAL", "DESTINO_CHORIZOS"
+  paymentStatus String     @default("PAGADO") // "PAGADO" o "FIADO"
+  customer      String?
+  notes         String?
+  createdAt     DateTime   @default(now())
 }

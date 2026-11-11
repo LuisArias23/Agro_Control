@@ -58,7 +58,7 @@ export default async function HomePage() {
         ? 'bg-rose-100/90 text-rose-900 border-rose-300' 
         : 'bg-slate-100/90 text-slate-600 border-slate-300',
       description: 'Lotes de ceba, control de bultos de concentrado, gastos de flete/veterinaria y ventas en pie/canal.',
-      href: '/cerdos',
+      href: '/Porcicultura',
       image: '/modules/cerdos.jfif',
     },
   ];
