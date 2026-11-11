@@ -39,6 +39,7 @@ enum SupplyType {
   CONCENTRADO
   MEDICAMENTO
   INSUMO_GENERAL
+  EQUIPO
 }
 
 model FarmSupply {
@@ -80,10 +81,17 @@ model PoultryBatch {
   currentQuantity Int
   chickCostTotal  Decimal           @default(0) @db.Decimal(10, 2)
   status          String            @default("EN_ENGORDE") // "EN_ENGORDE" o "LIQUIDADO"
+  
+  // Equipos asignados al lote en galpón
+  feedersCount    Int               @default(0) // Comederos (tolvas / bandejas)
+  drinkersCount   Int               @default(0) // Bebederos (campana / galón / niple)
+
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @default(now()) @updatedAt
   dailyLogs       PoultryDailyLog[]
   sales           PoultrySale[]
+  samplings       PoultrySampling[]
+  treatments      PoultryTreatment[]
 }
 
 model PoultryDailyLog {
@@ -264,4 +272,27 @@ model SwineSale {
   totalAmount    Decimal    @db.Decimal(10, 2)
   customerName   String?
   notes          String?
+}
+model PoultrySampling {
+  id              String       @id @default(uuid())
+  batchId         String
+  batch           PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date            DateTime     @default(now())
+  sampleBirds     Int          @default(10) // Cantidad de aves muestreadas
+  avgWeightGrams  Decimal      @db.Decimal(10, 2) // Peso promedio por pollo en gramos
+  notes           String?
+  createdAt       DateTime     @default(now())
+}
+
+model PoultryTreatment {
+  id              String       @id @default(uuid())
+  batchId         String
+  batch           PoultryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date            DateTime     @default(now())
+  productName     String       // Ej: Complejo B + Electrolitos, Enrofloxacina, Newcastle
+  treatmentType   String       @default("VITAMINA") // "VACUNA", "VITAMINA", "ANTIBIOTICO", "DESPARASITANTE"
+  dose            String?      // Ej: 1g por litro
+  withdrawalDays  Int          @default(0) // Días de retiro para consumo humano
+  notes           String?
+  createdAt       DateTime     @default(now())
 }

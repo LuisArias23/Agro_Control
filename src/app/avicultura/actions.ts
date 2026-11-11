@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
-// Crear Lote
+// Crear Lote con comederos y bebederos
 export async function createPoultryBatch(formData: FormData) {
   try {
     const batchCode = formData.get('batchCode') as string;
@@ -11,6 +11,9 @@ export async function createPoultryBatch(formData: FormData) {
     const chickCostTotal = parseFloat(formData.get('chickCostTotal') as string || '0');
     const startDateRaw = formData.get('startDate') as string;
     const startDate = startDateRaw ? new Date(startDateRaw) : new Date();
+
+    const feedersCount = parseInt(formData.get('feedersCount') as string || '0', 10);
+    const drinkersCount = parseInt(formData.get('drinkersCount') as string || '0', 10);
 
     if (!batchCode || initialQuantity <= 0) return;
 
@@ -21,6 +24,8 @@ export async function createPoultryBatch(formData: FormData) {
         initialQuantity,
         currentQuantity: initialQuantity,
         chickCostTotal,
+        feedersCount: isNaN(feedersCount) ? 0 : feedersCount,
+        drinkersCount: isNaN(drinkersCount) ? 0 : drinkersCount,
         status: 'EN_ENGORDE',
       },
     });
@@ -33,7 +38,7 @@ export async function createPoultryBatch(formData: FormData) {
   }
 }
 
-// Editar Datos Básicos del Lote
+// Actualizar Lote
 export async function updatePoultryBatch(formData: FormData) {
   try {
     const id = formData.get('id') as string;
@@ -43,9 +48,11 @@ export async function updatePoultryBatch(formData: FormData) {
     const startDateRaw = formData.get('startDate') as string;
     const startDate = startDateRaw ? new Date(startDateRaw) : new Date();
 
+    const feedersCount = parseInt(formData.get('feedersCount') as string || '0', 10);
+    const drinkersCount = parseInt(formData.get('drinkersCount') as string || '0', 10);
+
     if (!id || !batchCode || initialQuantity <= 0) return;
 
-    // Calcular las bajas y salidas registradas
     const currentBatch = await prisma.poultryBatch.findUnique({
       where: { id },
       include: { dailyLogs: true, sales: true },
@@ -65,6 +72,8 @@ export async function updatePoultryBatch(formData: FormData) {
         initialQuantity,
         currentQuantity: newCurrentQuantity,
         chickCostTotal,
+        feedersCount: isNaN(feedersCount) ? 0 : feedersCount,
+        drinkersCount: isNaN(drinkersCount) ? 0 : drinkersCount,
       },
     });
 
@@ -305,5 +314,58 @@ export async function reopenPoultryBatch(batchId: string) {
     revalidatePath('/');
   } catch (error) {
     console.error('Error al reabrir lote:', error);
+  }
+}
+// Registrar Muestreo de Peso
+export async function addPoultrySampling(formData: FormData) {
+  try {
+    const batchId = formData.get('batchId') as string;
+    const sampleBirds = parseInt(formData.get('sampleBirds') as string || '10', 10);
+    const avgWeightGrams = parseFloat(formData.get('avgWeightGrams') as string || '0');
+    const notes = (formData.get('notes') as string) || '';
+
+    if (!batchId || avgWeightGrams <= 0) return;
+
+    await prisma.poultrySampling.create({
+      data: {
+        batchId,
+        sampleBirds,
+        avgWeightGrams,
+        notes: notes || null,
+      },
+    });
+
+    revalidatePath('/avicultura');
+  } catch (error) {
+    console.error('Error al registrar muestreo de peso:', error);
+  }
+}
+
+// Registrar Tratamiento o Medicación
+export async function addPoultryTreatment(formData: FormData) {
+  try {
+    const batchId = formData.get('batchId') as string;
+    const productName = formData.get('productName') as string;
+    const treatmentType = (formData.get('treatmentType') as string) || 'VITAMINA';
+    const dose = (formData.get('dose') as string) || '';
+    const withdrawalDays = parseInt(formData.get('withdrawalDays') as string || '0', 10);
+    const notes = (formData.get('notes') as string) || '';
+
+    if (!batchId || !productName) return;
+
+    await prisma.poultryTreatment.create({
+      data: {
+        batchId,
+        productName,
+        treatmentType,
+        dose: dose || null,
+        withdrawalDays: isNaN(withdrawalDays) ? 0 : withdrawalDays,
+        notes: notes || null,
+      },
+    });
+
+    revalidatePath('/avicultura');
+  } catch (error) {
+    console.error('Error al registrar tratamiento:', error);
   }
 }
