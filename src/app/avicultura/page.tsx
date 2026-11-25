@@ -180,7 +180,7 @@ export default async function PollosPage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-slate-900">Lotes Activos en Galpón ({activeBatches.length})</h2>
-            
+
             <div className="flex items-center gap-2 text-xs font-semibold bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
               <span className="flex items-center gap-1 text-amber-800">
                 <UtensilsCrossed className="w-3.5 h-3.5" /> {totalFeedersInUse} comederos en uso
@@ -216,8 +216,11 @@ export default async function PollosPage() {
               const totalFeedCost = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedCost || 0), 0);
               const totalCost = Number(batch.chickCostTotal) + totalFeedCost;
 
-              // Costo real unitario por pollo vivo actual
-              const unitCost = batch.currentQuantity > 0 ? (totalCost / batch.currentQuantity) : 0;
+              // Población útil total (aves vivas en galpón + aves ya sacadas/vendidas)
+              const totalUsefulBirds = batch.currentQuantity + totalSold;
+
+              // Costo real unitario por ave producida en el lote
+              const unitCost = totalUsefulBirds > 0 ? (totalCost / totalUsefulBirds) : 0;
 
               // Muestreo más reciente y Conversión (FCA)
               const latestSampling = batch.samplings[0];
@@ -287,9 +290,8 @@ export default async function PollosPage() {
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ${
-                          cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
-                        }`}
+                        className={`h-full transition-all duration-500 ${cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
+                          }`}
                         style={{ width: `${cycleProgress}%` }}
                       />
                     </div>
