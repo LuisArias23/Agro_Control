@@ -9,6 +9,18 @@ import { LayerHistoryTable } from './LayerHistoryTable';
 import { EditLayerBatchModal } from './EditLayerBatchModal';
 import { EggSalesModal } from './EggSalesModal';
 
+// Cálculo de consumo acumulado teórico por ave (en Kg) según días de edad
+function getExpectedFeedPerHenKg(days: number): number {
+  let grams = 0;
+  for (let d = 1; d <= days; d++) {
+    if (d <= 42) grams += 30;        // Sem. 1-6 (Cría): ~30 g/día
+    else if (d <= 84) grams += 55;   // Sem. 7-12 (Levante): ~55 g/día
+    else if (d <= 125) grams += 75;  // Sem. 13-17 (Pre-postura): ~75 g/día
+    else grams += 112;               // Sem. 18+ (Postura adulta): ~112 g/día
+  }
+  return grams / 1000;
+}
+
 export default async function PonedorasPage() {
   const batches = await prisma.layerBatch.findMany({
     where: { status: 'EN_POSTURA' },
@@ -141,12 +153,10 @@ export default async function PonedorasPage() {
               const days = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
               const currentWeek = Math.floor(days / 7);
 
-              // Parámetros ciclo postura:
-              // Semana 18 (126 días) = Inicio de postura
-              // Semana 80 (560 días) = Fin de ciclo productivo rentable (~14 meses poniendo)
+              // Ciclo postura: Sem. 18 (126 días) inicio postura | Sem. 80 (560 días) fin ciclo
               const startLayingDay = 126;
               const endLayingDay = 560;
-              const layingSpanDays = endLayingDay - startLayingDay; // 434 días (~14.5 meses)
+              const layingSpanDays = endLayingDay - startLayingDay;
 
               const isLaying = days >= startLayingDay;
               const daysUntilLaying = Math.max(0, startLayingDay - days);
@@ -164,6 +174,11 @@ export default async function PonedorasPage() {
               const totalEggsGood = batch.eggLogs.reduce((acc, l) => acc + l.eggsCollected, 0);
               const totalEggsBroken = batch.eggLogs.reduce((acc, l) => acc + l.eggsBroken, 0);
               const totalFeedKg = batch.eggLogs.reduce((acc, l) => acc + Number(l.feedKgServed), 0);
+
+              // Consumo estimado según días y población actual
+              const expectedFeedKg = getExpectedFeedPerHenKg(days) * batch.currentHens;
+              const expectedBultos = (expectedFeedKg / 40).toFixed(1);
+              const realBultos = (totalFeedKg / 40).toFixed(1);
 
               const totalSoldUnits = batch.sales.reduce((acc, s) => acc + s.unitsSold, 0);
               const totalIncome = batch.sales.reduce((acc, s) => acc + Number(s.totalAmount), 0);
@@ -300,12 +315,18 @@ export default async function PonedorasPage() {
                       <span className="text-[10px] text-rose-500 block mt-0.5">{totalEggsBroken} rotos/sucios</span>
                     </div>
 
+                    {/* Alimento Real Registrado vs Consumo Estimado según Días */}
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <span className="text-xs text-slate-500">Alimento Servido</span>
+                      <span className="text-xs text-slate-500">Alimento (Real / Est.)</span>
                       <p className="text-base font-bold text-slate-900">
                         {totalFeedKg.toFixed(1)} <span className="text-xs font-normal text-slate-500">Kg</span>
                       </p>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">Total acumulado</span>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">
+                        Real: <strong>{realBultos} bto</strong>
+                      </span>
+                      <span className="text-[10px] text-amber-800 font-semibold block">
+                        Est. ({days}d): ~{expectedFeedKg.toFixed(0)} Kg ({expectedBultos} bto)
+                      </span>
                     </div>
 
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
