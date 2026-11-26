@@ -1,7 +1,7 @@
 export const instant = false;
 
 import Link from 'next/link';
-import { Egg, ArrowLeft, PlusCircle, AlertCircle, Calendar, Archive, Layers } from 'lucide-react';
+import { Egg, ArrowLeft, PlusCircle, AlertCircle, Calendar, ChevronDown } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { createLayerBatch } from './actions';
 import { LayerActionsForm } from './LayerActionsForm';
@@ -12,7 +12,7 @@ import { EggSalesModal } from './EggSalesModal';
 export default async function PonedorasPage() {
   const batches = await prisma.layerBatch.findMany({
     where: { status: 'EN_POSTURA' },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { startDate: 'asc' },
     include: {
       eggLogs: { orderBy: { date: 'desc' } },
       sales: { orderBy: { date: 'desc' } },
@@ -22,34 +22,49 @@ export default async function PonedorasPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Link
               href="/"
-              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div>
-              <h1 className="text-lg font-bold flex items-center gap-2">
-                <Egg className="w-5 h-5 text-amber-700" />
-                Gallinas Ponedoras
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold flex items-center gap-1.5 truncate">
+                <Egg className="w-5 h-5 text-amber-700 shrink-0" />
+                <span className="truncate">Gallinas Ponedoras</span>
               </h1>
-              <p className="text-xs text-slate-500">Recolección de huevos, postura diaria, ventas e inventario</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                Recolección de huevos, postura diaria, ventas e inventario
+              </p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Formulario Ingreso Lote */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+        {/* Formulario Colapsable Ingreso Lote */}
         <div className="lg:col-span-1">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs sticky top-24">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
-              <PlusCircle className="w-5 h-5 text-amber-700" />
-              Ingresar Lote de Postura
-            </h2>
-            <form action={createLayerBatch} className="space-y-4">
+          <details className="group bg-white rounded-xl border border-slate-200 shadow-xs lg:sticky lg:top-24 overflow-hidden">
+            <summary className="list-none cursor-pointer p-4 sm:p-5 flex items-center justify-between hover:bg-amber-50/40 transition select-none">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                  <PlusCircle className="w-4 h-4" />
+                </span>
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                    Ingresar Lote de Postura
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Toca para desplegar formulario de ingreso
+                  </p>
+                </div>
+              </div>
+              <ChevronDown className="w-4 h-4 text-slate-400 transition-transform duration-200 group-open:rotate-180 shrink-0" />
+            </summary>
+
+            <form action={createLayerBatch} className="p-5 pt-2 border-t border-slate-100 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Identificador del Lote</label>
                 <input
@@ -104,7 +119,7 @@ export default async function PonedorasPage() {
                 Registrar Lote
               </button>
             </form>
-          </div>
+          </details>
         </div>
 
         {/* Listado de Lotes */}
@@ -115,7 +130,9 @@ export default async function PonedorasPage() {
             <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
               <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
               <p className="text-sm font-medium">No hay lotes de postura activos.</p>
-              <p className="text-xs text-slate-400 mt-1">Registra un nuevo lote de gallinas para empezar a monitorear la producción.</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Registra un nuevo lote de gallinas para empezar a monitorear la producción.
+              </p>
             </div>
           ) : (
             batches.map((batch) => {
@@ -128,7 +145,6 @@ export default async function PonedorasPage() {
               const totalEggsBroken = batch.eggLogs.reduce((acc, l) => acc + l.eggsBroken, 0);
               const totalFeedKg = batch.eggLogs.reduce((acc, l) => acc + Number(l.feedKgServed), 0);
 
-              // Ventas y saldo disponible
               const totalSoldUnits = batch.sales.reduce((acc, s) => acc + s.unitsSold, 0);
               const totalIncome = batch.sales.reduce((acc, s) => acc + Number(s.totalAmount), 0);
               const pendingFiado = batch.sales
@@ -138,12 +154,10 @@ export default async function PonedorasPage() {
               const availableEggs = Math.max(0, totalEggsGood - totalSoldUnits);
               const availablePanales = (availableEggs / 30).toFixed(1);
 
-              // Postura del día más reciente registrado
               const lastLog = batch.eggLogs[0];
-              const todayEggs = lastLog ? (lastLog.eggsCollected + lastLog.eggsBroken) : 0;
-              const posturePercent = batch.currentHens > 0 
-                ? ((todayEggs / batch.currentHens) * 100).toFixed(1) 
-                : '0';
+              const todayEggs = lastLog ? lastLog.eggsCollected + lastLog.eggsBroken : 0;
+              const posturePercent =
+                batch.currentHens > 0 ? ((todayEggs / batch.currentHens) * 100).toFixed(1) : '0';
 
               return (
                 <div key={batch.id} className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
@@ -166,7 +180,8 @@ export default async function PonedorasPage() {
                         />
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Inició: {new Date(batch.startDate).toLocaleDateString()}
+                        Inició: {new Date(batch.startDate).toLocaleDateString('es-CO')} · Inv. inicial: $
+                        {Number(batch.costTotal).toLocaleString('es-CO')}
                       </p>
                     </div>
 
@@ -196,7 +211,8 @@ export default async function PonedorasPage() {
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <span className="text-xs text-slate-500">Gallinas Vivas</span>
                       <p className="text-base font-bold text-slate-900">
-                        {batch.currentHens} <span className="text-xs font-normal text-slate-400">/ {batch.initialHens}</span>
+                        {batch.currentHens}{' '}
+                        <span className="text-xs font-normal text-slate-400">/ {batch.initialHens}</span>
                       </p>
                       <span className="text-[10px] text-rose-600 block mt-0.5">{totalMortality} bajas</span>
                     </div>
@@ -212,7 +228,9 @@ export default async function PonedorasPage() {
                       <p className="text-base font-black text-emerald-950">
                         {availableEggs} <span className="text-xs font-normal text-emerald-700">und</span>
                       </p>
-                      <span className="text-[10px] text-emerald-800 block mt-0.5 font-bold">~{availablePanales} panales</span>
+                      <span className="text-[10px] text-emerald-800 block mt-0.5 font-bold">
+                        ~{availablePanales} panales
+                      </span>
                     </div>
 
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
