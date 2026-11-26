@@ -14,13 +14,13 @@ export default async function PollosVentasPage() {
         dailyLogs: true,
         sales: true,
       },
-      orderBy: { startDate: 'asc' }, // El lote más antiguo (listo / en saca) primero
+      orderBy: { startDate: 'asc' },
     }),
     prisma.poultrySale.findMany({
       where: {
         OR: [
           { batch: { status: 'EN_ENGORDE' } },
-          { paymentStatus: 'FIADO' }, // Mantiene visibles fiados pendientes aunque el lote ya esté liquidado
+          { paymentStatus: 'FIADO' },
         ],
       },
       orderBy: { date: 'desc' },
@@ -32,7 +32,6 @@ export default async function PollosVentasPage() {
   const getBatchAgeDays = (startDate: Date) =>
     Math.max(0, Math.floor((now - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)));
 
-  // Métricas exclusivas de los lotes activos (los liquidados pasan al historial)
   const activeSalesOnly = operationalSales.filter(s => s.batch.status === 'EN_ENGORDE');
   const totalSoldIncome = activeSalesOnly.reduce((acc, s) => acc + Number(s.totalPrice), 0);
   const totalCollected = activeSalesOnly
@@ -55,7 +54,7 @@ export default async function PollosVentasPage() {
                 <DollarSign className="w-5 h-5 text-emerald-600" />
                 Ventas y Despachos (Lotes Activos)
               </h1>
-              <p className="text-xs text-slate-500">Control de sacas en pie/canal, ventas al detal, fiados y liquidación</p>
+              <p className="text-xs text-slate-500">Control de sacas en pie/canal, congelador, fiados y liquidación</p>
             </div>
           </div>
 
@@ -118,10 +117,11 @@ export default async function PollosVentasPage() {
                     >
                       {activeBatches.map(b => {
                         const ageDays = getBatchAgeDays(b.startDate);
+                        const freezerQty = b.freezerQuantity || 0;
                         const stageLabel = ageDays >= 42 ? 'Listo / En saca' : `Día ${ageDays}`;
                         return (
                           <option key={b.id} value={b.id}>
-                            {b.batchCode} ({b.currentQuantity} aves disp. · {stageLabel})
+                            {b.batchCode} ({freezerQty} congelador · {b.currentQuantity} vivos · {stageLabel})
                           </option>
                         );
                       })}
@@ -146,7 +146,7 @@ export default async function PollosVentasPage() {
                         name="saleType"
                         className="w-full text-xs px-2 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
-                        <option value="CANAL">En Canal</option>
+                        <option value="CANAL">En Canal (Congelador)</option>
                         <option value="EN_PIE">En Pie (Vivo)</option>
                       </select>
                     </div>
@@ -228,7 +228,8 @@ export default async function PollosVentasPage() {
                     const totalSales = batch.sales.reduce((acc, s) => acc + Number(s.totalPrice), 0);
                     const profit = totalSales - totalCost;
                     const ageDays = getBatchAgeDays(batch.startDate);
-                    const isReady = ageDays >= 42;
+                    const freezerQty = batch.freezerQuantity || 0;
+                    const isReady = ageDays >= 42 || freezerQty > 0;
 
                     return (
                       <div
@@ -240,12 +241,17 @@ export default async function PollosVentasPage() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-bold text-slate-900 text-sm">{batch.batchCode}</span>
+                            {freezerQty > 0 && (
+                              <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-sky-100 text-sky-800">
+                                ❄️ {freezerQty} en congelador
+                              </span>
+                            )}
                             <span
                               className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
                                 isReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                               }`}
                             >
-                              {batch.currentQuantity} aves disp. · {isReady ? 'Listo / En saca' : `Día ${ageDays}`}
+                              {batch.currentQuantity} vivos · {isReady ? 'Listo / En saca' : `Día ${ageDays}`}
                             </span>
                           </div>
                           <p className="text-slate-500 mt-0.5">
@@ -357,7 +363,7 @@ export default async function PollosVentasPage() {
                                   <button
                                     type="submit"
                                     className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                                    title="Eliminar saca y devolver aves al lote"
+                                    title="Eliminar saca y devolver aves"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>

@@ -12,11 +12,10 @@ import {
   Archive,
   UtensilsCrossed,
   Droplet,
-  Scale,
-  ShieldCheck,
   AlertTriangle,
+  Snowflake,
 } from 'lucide-react';
-import { createPoultryBatch } from './actions';
+import { createPoultryBatch, processBirdsToFreezer } from './actions';
 import { DailyLogForm } from './DailyLogForm';
 import { BatchHistoryModal } from './BatchHistoryModal';
 import { EditBatchModal } from './EditBatchModal';
@@ -26,7 +25,7 @@ export default async function PollosPage() {
   const [activeBatches, closedBatchesCount] = await Promise.all([
     prisma.poultryBatch.findMany({
       where: { status: 'EN_ENGORDE' },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { startDate: 'asc' },
       include: {
         dailyLogs: { orderBy: { date: 'desc' } },
         sales: true,
@@ -56,7 +55,7 @@ export default async function PollosPage() {
                 <Bird className="w-5 h-5 text-amber-600" />
                 Avicultura (Pollos de Engorde)
               </h1>
-              <p className="text-xs text-slate-500">Manejo de galpón, lotes, conversión (FCA) y costos</p>
+              <p className="text-xs text-slate-500">Manejo de galpón, congelador, conversión (FCA) y costos</p>
             </div>
           </div>
 
@@ -94,7 +93,7 @@ export default async function PollosPage() {
                 <input
                   type="text"
                   name="batchCode"
-                  placeholder="Ej: LOTE-3"
+                  placeholder="Ej: LOTE-5"
                   required
                   className="w-full text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
@@ -201,13 +200,13 @@ export default async function PollosPage() {
             activeBatches.map((batch) => {
               const totalMortality = batch.dailyLogs.reduce((acc, log) => acc + log.mortalityCount, 0);
               const totalSold = batch.sales.reduce((acc, s) => acc + s.birdsSold, 0);
+              const freezerBirds = batch.freezerQuantity || 0;
               const mortalityRate = ((totalMortality / batch.initialQuantity) * 100).toFixed(1);
 
               const start = new Date(batch.startDate).getTime();
               const now = new Date().getTime();
               const diffDays = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
 
-              // Ciclo proyectado a 45 días
               const targetDays = 45;
               const cycleProgress = Math.min(100, Math.round((diffDays / targetDays) * 100));
               const daysRemaining = Math.max(0, targetDays - diffDays);
@@ -216,21 +215,24 @@ export default async function PollosPage() {
               const totalFeedCost = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedCost || 0), 0);
               const totalCost = Number(batch.chickCostTotal) + totalFeedCost;
 
-              // Población útil total (aves vivas en galpón + aves ya sacadas/vendidas)
-              const totalUsefulBirds = batch.currentQuantity + totalSold;
+              // Población útil total (vivos en galpón + beneficiados en congelador + ya vendidos)
+              const totalUsefulBirds = batch.currentQuantity + freezerBirds + totalSold;
 
               // Costo real unitario por ave producida en el lote
-              const unitCost = totalUsefulBirds > 0 ? (totalCost / totalUsefulBirds) : 0;
+              const unitCost = totalUsefulBirds > 0 ? totalCost / totalUsefulBirds : 0;
 
               // Muestreo más reciente y Conversión (FCA)
               const latestSampling = batch.samplings[0];
               const avgWeightGrams = latestSampling ? Number(latestSampling.avgWeightGrams) : null;
               const avgWeightLbs = avgWeightGrams ? (avgWeightGrams / 453.592).toFixed(2) : null;
 
-              const totalLiveBiomassKg = avgWeightGrams ? (batch.currentQuantity * (avgWeightGrams / 1000)) : null;
-              const fca = totalLiveBiomassKg && totalLiveBiomassKg > 0
-                ? (totalFeedServed / totalLiveBiomassKg).toFixed(2)
+              const totalLiveBiomassKg = avgWeightGrams
+                ? batch.currentQuantity * (avgWeightGrams / 1000)
                 : null;
+              const fca =
+                totalLiveBiomassKg && totalLiveBiomassKg > 0
+                  ? (totalFeedServed / totalLiveBiomassKg).toFixed(2)
+                  : null;
 
               // Retiro sanitario activo
               const activeWithdrawalTreatment = batch.treatments.find((t) => {
@@ -268,7 +270,7 @@ export default async function PollosPage() {
                         />
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Ingresó: {new Date(batch.startDate).toLocaleDateString()}
+                        Ingresó: {new Date(batch.startDate).toLocaleDateString('es-CO')}
                       </p>
                     </div>
 
@@ -290,8 +292,9 @@ export default async function PollosPage() {
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ${cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
-                          }`}
+                        className={`h-full transition-all duration-500 ${
+                          cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
+                        }`}
                         style={{ width: `${cycleProgress}%` }}
                       />
                     </div>
@@ -310,10 +313,16 @@ export default async function PollosPage() {
                   {/* Métricas Principales */}
                   <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <span className="text-xs text-slate-500">Población Viva</span>
+                      <span className="text-xs text-slate-500">Galpón / Congelador</span>
                       <p className="text-base font-bold text-slate-900">
-                        {batch.currentQuantity} <span className="text-xs font-normal text-slate-400">/ {batch.initialQuantity}</span>
+                        {batch.currentQuantity}{' '}
+                        <span className="text-xs font-normal text-slate-500">vivos</span>
                       </p>
+                      {freezerBirds > 0 && (
+                        <span className="text-[11px] font-bold text-sky-700 block mt-0.5">
+                          ❄️ {freezerBirds} en congelador
+                        </span>
+                      )}
                       <span className="text-[10px] text-rose-600 block mt-0.5">
                         {totalMortality} bajas ({mortalityRate}%)
                       </span>
@@ -322,7 +331,11 @@ export default async function PollosPage() {
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <span className="text-xs text-slate-500">Peso Promedio</span>
                       <p className="text-base font-bold text-indigo-950">
-                        {avgWeightGrams ? `${avgWeightGrams} g` : <span className="text-xs text-slate-400 font-normal">Sin pesaje</span>}
+                        {avgWeightGrams ? (
+                          `${avgWeightGrams} g`
+                        ) : (
+                          <span className="text-xs text-slate-400 font-normal">Sin pesaje</span>
+                        )}
                       </p>
                       {avgWeightLbs && (
                         <span className="text-[10px] text-indigo-700 block mt-0.5">~{avgWeightLbs} Libras/ave</span>
@@ -373,6 +386,43 @@ export default async function PollosPage() {
                       <span className="text-[10px] font-normal text-slate-500">({birdsPerDrinker} aves/beb)</span>
                     </div>
                   </div>
+
+                  {/* Acción rápida: Beneficiar pollos y pasarlos del Galpón al Congelador */}
+                  {batch.currentQuantity > 0 && (
+                    <form
+                      action={processBirdsToFreezer}
+                      className="flex flex-wrap items-center justify-between gap-2 p-3 bg-sky-50/70 border border-sky-200/80 rounded-lg text-xs"
+                    >
+                      <input type="hidden" name="batchId" value={batch.id} />
+                      <div className="flex items-center gap-2 font-semibold text-sky-950">
+                        <Snowflake className="w-4 h-4 text-sky-600 shrink-0" />
+                        <span>Beneficiar y pasar al congelador:</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="number"
+                          name="birdsCount"
+                          min="1"
+                          max={batch.currentQuantity}
+                          placeholder={`Máx ${batch.currentQuantity}`}
+                          required
+                          className="w-24 px-2.5 py-1.5 bg-white border border-sky-200 rounded-lg text-xs font-bold text-slate-900 outline-none"
+                        />
+                        <input
+                          type="text"
+                          name="notes"
+                          placeholder="Nota (ej: Primera tanda)"
+                          className="w-36 sm:w-44 px-2.5 py-1.5 bg-white border border-sky-200 rounded-lg text-xs outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="px-3 py-1.5 bg-sky-700 hover:bg-sky-800 text-white font-bold rounded-lg transition cursor-pointer"
+                        >
+                          Pasar a Congelador
+                        </button>
+                      </div>
+                    </form>
+                  )}
 
                   {/* Formulario de Novedad Diaria */}
                   <DailyLogForm batchId={batch.id} />

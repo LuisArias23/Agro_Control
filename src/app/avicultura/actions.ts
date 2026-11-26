@@ -23,6 +23,7 @@ export async function createPoultryBatch(formData: FormData) {
         startDate,
         initialQuantity,
         currentQuantity: initialQuantity,
+        freezerQuantity: 0,
         chickCostTotal,
         feedersCount: isNaN(feedersCount) ? 0 : feedersCount,
         drinkersCount: isNaN(drinkersCount) ? 0 : drinkersCount,
@@ -62,7 +63,10 @@ export async function updatePoultryBatch(formData: FormData) {
 
     const totalMortality = currentBatch.dailyLogs.reduce((acc, log) => acc + log.mortalityCount, 0);
     const totalSold = currentBatch.sales.reduce((acc, sale) => acc + sale.birdsSold, 0);
-    const newCurrentQuantity = Math.max(0, initialQuantity - totalMortality - totalSold);
+    const newCurrentQuantity = Math.max(
+      0,
+      initialQuantity - totalMortality - totalSold - (currentBatch.freezerQuantity || 0)
+    );
 
     await prisma.poultryBatch.update({
       where: { id },
@@ -83,6 +87,48 @@ export async function updatePoultryBatch(formData: FormData) {
     revalidatePath('/');
   } catch (error) {
     console.error('Error al actualizar lote:', error);
+  }
+}
+
+// Beneficiar aves: pasar del Galpón (Vivos) al Congelador (En Canal)
+export async function processBirdsToFreezer(formData: FormData) {
+  try {
+    const batchId = formData.get('batchId') as string;
+    const birdsCount = parseInt(formData.get('birdsCount') as string || '0', 10);
+    const notes = (formData.get('notes') as string) || '';
+
+    if (!batchId || birdsCount <= 0) return;
+
+    const batch = await prisma.poultryBatch.findUnique({
+      where: { id: batchId },
+    });
+
+    if (!batch || batch.currentQuantity < birdsCount) return;
+
+    await prisma.$transaction([
+      prisma.poultryBatch.update({
+        where: { id: batchId },
+        data: {
+          currentQuantity: { decrement: birdsCount },
+          freezerQuantity: { increment: birdsCount },
+        },
+      }),
+      prisma.poultryDailyLog.create({
+        data: {
+          batchId,
+          mortalityCount: 0,
+          feedBrand: 'SIN_ALIMENTO',
+          feedKgServed: 0,
+          feedCost: 0,
+          notes: `❄️ Beneficio a congelador: ${birdsCount} aves${notes.trim() ? ` (${notes.trim()})` : ''}`,
+        },
+      }),
+    ]);
+
+    revalidatePath('/avicultura');
+    revalidatePath('/avicultura/ventas');
+  } catch (error) {
+    console.error('Error al pasar aves al congelador:', error);
   }
 }
 
@@ -110,7 +156,6 @@ export async function addDailyLog(formData: FormData) {
 
     const brandLabel = brandNames[feedBrand] || feedBrand;
 
-    // Solo calculamos alimento si es estrictamente > 0
     if (entryMode === 'bultos' && bultos > 0) {
       feedKgServed = bultos * 40;
       detailText = `${bultos} bto(s) ${brandLabel} [${feedStage}]`;
@@ -122,7 +167,6 @@ export async function addDailyLog(formData: FormData) {
     const userNotes = (formData.get('notes') as string) || '';
     const finalNotes = [userNotes, detailText].filter(Boolean).join(' - ');
 
-    // Si no hubo bajas ni comida, no guardamos un registro vacío
     if (mortalityCount <= 0 && feedKgServed <= 0) return;
 
     await prisma.$transaction([
@@ -136,7 +180,6 @@ export async function addDailyLog(formData: FormData) {
           notes: finalNotes || (mortalityCount > 0 ? 'Registro de bajas' : null),
         },
       }),
-      // Solo descuenta del lote si hubo bajas
       ...(mortalityCount > 0
         ? [
             prisma.poultryBatch.update({
@@ -167,15 +210,32 @@ export async function deleteDailyLog(logId: string) {
 
     if (!log) return;
 
+    // Si era un registro de beneficio al congelador, revertimos del congelador al galpón
+    const freezerMatch = log.notes?.match(/^❄️ Beneficio a congelador:\s*(\d+)\s*aves/);
+    const freezerBirds = freezerMatch ? parseInt(freezerMatch[1], 10) : 0;
+
     await prisma.$transaction([
-      prisma.poultryBatch.update({
-        where: { id: log.batchId },
-        data: {
-          currentQuantity: {
-            increment: log.mortalityCount,
-          },
-        },
-      }),
+      ...(log.mortalityCount > 0
+        ? [
+            prisma.poultryBatch.update({
+              where: { id: log.batchId },
+              data: {
+                currentQuantity: { increment: log.mortalityCount },
+              },
+            }),
+          ]
+        : []),
+      ...(freezerBirds > 0
+        ? [
+            prisma.poultryBatch.update({
+              where: { id: log.batchId },
+              data: {
+                currentQuantity: { increment: freezerBirds },
+                freezerQuantity: { decrement: freezerBirds },
+              },
+            }),
+          ]
+        : []),
       prisma.poultryDailyLog.delete({
         where: { id: logId },
       }),
@@ -188,12 +248,12 @@ export async function deleteDailyLog(logId: string) {
   }
 }
 
-// Registrar Saca Parcial o Venta
+// Registrar Saca Parcial o Venta (descuenta de Congelador si es CANAL, o de Galpón si es EN_PIE)
 export async function addPoultrySale(formData: FormData) {
   try {
     const batchId = formData.get('batchId') as string;
     const birdsSold = parseInt(formData.get('birdsSold') as string || '0', 10);
-    const saleType = (formData.get('saleType') as string) || 'EN_PIE';
+    const saleType = (formData.get('saleType') as string) || 'CANAL';
     const totalWeight = parseFloat(formData.get('totalWeight') as string || '0');
     const totalPrice = parseFloat(formData.get('totalPrice') as string || '0');
     const paymentStatus = (formData.get('paymentStatus') as string) || 'PAGADO';
@@ -201,6 +261,24 @@ export async function addPoultrySale(formData: FormData) {
     const notes = (formData.get('notes') as string) || '';
 
     if (!batchId || birdsSold <= 0) return;
+
+    const batch = await prisma.poultryBatch.findUnique({
+      where: { id: batchId },
+    });
+
+    if (!batch) return;
+
+    // Si vende en canal y hay pollos en congelador, descuenta del congelador;
+    // si no alcanza el congelador (venta directa sin pasar por congelador), descuenta la diferencia del galpón.
+    let decrementFreezer = 0;
+    let decrementLive = 0;
+
+    if (saleType === 'CANAL' && batch.freezerQuantity > 0) {
+      decrementFreezer = Math.min(batch.freezerQuantity, birdsSold);
+      decrementLive = Math.max(0, birdsSold - decrementFreezer);
+    } else {
+      decrementLive = birdsSold;
+    }
 
     await prisma.$transaction([
       prisma.poultrySale.create({
@@ -218,9 +296,8 @@ export async function addPoultrySale(formData: FormData) {
       prisma.poultryBatch.update({
         where: { id: batchId },
         data: {
-          currentQuantity: {
-            decrement: birdsSold,
-          },
+          ...(decrementFreezer > 0 ? { freezerQuantity: { decrement: decrementFreezer } } : {}),
+          ...(decrementLive > 0 ? { currentQuantity: { decrement: decrementLive } } : {}),
         },
       }),
     ]);
@@ -232,7 +309,7 @@ export async function addPoultrySale(formData: FormData) {
   }
 }
 
-// Eliminar Saca y Devolver Aves al Galpón
+// Eliminar Saca y Devolver Aves (al Congelador si fue CANAL, o al Galpón si fue EN_PIE)
 export async function deletePoultrySale(saleId: string) {
   try {
     const sale = await prisma.poultrySale.findUnique({
@@ -241,14 +318,14 @@ export async function deletePoultrySale(saleId: string) {
 
     if (!sale) return;
 
+    const returnToFreezer = sale.saleType === 'CANAL';
+
     await prisma.$transaction([
       prisma.poultryBatch.update({
         where: { id: sale.batchId },
-        data: {
-          currentQuantity: {
-            increment: sale.birdsSold,
-          },
-        },
+        data: returnToFreezer
+          ? { freezerQuantity: { increment: sale.birdsSold } }
+          : { currentQuantity: { increment: sale.birdsSold } },
       }),
       prisma.poultrySale.delete({
         where: { id: saleId },
@@ -316,6 +393,7 @@ export async function reopenPoultryBatch(batchId: string) {
     console.error('Error al reabrir lote:', error);
   }
 }
+
 // Registrar Muestreo de Peso
 export async function addPoultrySampling(formData: FormData) {
   try {

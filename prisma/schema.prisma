@@ -78,12 +78,13 @@ model PoultryBatch {
   startDate       DateTime          @default(now())
   endDate         DateTime?
   initialQuantity Int
-  currentQuantity Int
+  currentQuantity Int               // Pollos vivos actualmente en galpón
+  freezerQuantity Int               @default(0) // Pollos beneficiados/embolsados en congelador
   chickCostTotal  Decimal           @default(0) @db.Decimal(10, 2)
   status          String            @default("EN_ENGORDE") // "EN_ENGORDE" o "LIQUIDADO"
   
-  feedersCount    Int               @default(0) // Comederos asignados
-  drinkersCount   Int               @default(0) // Bebederos asignados
+  feedersCount    Int               @default(0)
+  drinkersCount   Int               @default(0)
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @default(now()) @updatedAt
