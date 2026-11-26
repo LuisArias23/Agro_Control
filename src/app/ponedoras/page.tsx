@@ -77,7 +77,7 @@ export default async function PonedorasPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Entrada</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Entrada (Día 1)</label>
                 <input
                   type="date"
                   name="startDate"
@@ -139,6 +139,26 @@ export default async function PonedorasPage() {
               const start = new Date(batch.startDate).getTime();
               const now = new Date().getTime();
               const days = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+              const currentWeek = Math.floor(days / 7);
+
+              // Parámetros ciclo postura:
+              // Semana 18 (126 días) = Inicio de postura
+              // Semana 80 (560 días) = Fin de ciclo productivo rentable (~14 meses poniendo)
+              const startLayingDay = 126;
+              const endLayingDay = 560;
+              const layingSpanDays = endLayingDay - startLayingDay; // 434 días (~14.5 meses)
+
+              const isLaying = days >= startLayingDay;
+              const daysUntilLaying = Math.max(0, startLayingDay - days);
+              const weeksUntilLaying = (daysUntilLaying / 7).toFixed(1);
+
+              const daysInLaying = Math.max(0, days - startLayingDay);
+              const daysRemainingLaying = Math.max(0, endLayingDay - days);
+              const monthsRemainingLaying = (daysRemainingLaying / 30).toFixed(1);
+
+              const progressPercent = !isLaying
+                ? Math.min(100, Math.round((days / startLayingDay) * 100))
+                : Math.min(100, Math.round((daysInLaying / layingSpanDays) * 100));
 
               const totalMortality = batch.eggLogs.reduce((acc, l) => acc + l.mortalityCount, 0);
               const totalEggsGood = batch.eggLogs.reduce((acc, l) => acc + l.eggsCollected, 0);
@@ -163,11 +183,11 @@ export default async function PonedorasPage() {
                 <div key={batch.id} className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-bold text-slate-900">{batch.batchCode}</h3>
                         <span className="text-xs font-semibold px-2.5 py-0.5 bg-amber-100 text-amber-900 rounded-full flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          Día {days}
+                          Día {days} (Sem. {currentWeek})
                         </span>
                         <EditLayerBatchModal
                           batch={{
@@ -200,9 +220,48 @@ export default async function PonedorasPage() {
                           isPaid: s.isPaid,
                         }))}
                       />
-                      <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                        EN POSTURA
+                      <span
+                        className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                          isLaying
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {isLaying ? 'EN POSTURA' : 'EN LEVANTE'}
                       </span>
+                    </div>
+                  </div>
+
+                  {/* Progreso hacia inicio de postura y duración de ciclo productivo */}
+                  <div className="p-3 bg-amber-50/50 border border-amber-200/70 rounded-lg space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] font-semibold">
+                      {!isLaying ? (
+                        <>
+                          <span className="text-amber-950">
+                            Faltan <strong>{daysUntilLaying} días</strong> (~{weeksUntilLaying} sem.) para empezar a poner (Sem. 18)
+                          </span>
+                          <span className="text-slate-600">
+                            Duración estimada poniendo: <strong>~14 meses</strong> (Sem. 18 a 80)
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-emerald-900">
+                            En postura activa: <strong>{daysInLaying} días</strong> poniendo (Sem. {currentWeek} de 80)
+                          </span>
+                          <span className="text-slate-600">
+                            Vida útil restante: <strong>~{monthsRemainingLaying} meses</strong> ({daysRemainingLaying} días)
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className="w-full bg-slate-200/80 h-2 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          isLaying ? 'bg-emerald-600' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${progressPercent}%` }}
+                      />
                     </div>
                   </div>
 
