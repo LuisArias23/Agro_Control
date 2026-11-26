@@ -42,38 +42,40 @@ export default async function PollosPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 py-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Link
               href="/"
-              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div>
-              <h1 className="text-lg font-bold flex items-center gap-2">
-                <Bird className="w-5 h-5 text-amber-600" />
-                Avicultura (Pollos de Engorde)
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold flex items-center gap-1.5 truncate">
+                <Bird className="w-5 h-5 text-amber-600 shrink-0" />
+                <span className="truncate">Avicultura (Engorde)</span>
               </h1>
-              <p className="text-xs text-slate-500">Manejo de galpón, congelador, conversión (FCA) y costos</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                Manejo de galpón, congelador, FCA y costos
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
             <Link
               href="/avicultura/historial"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition whitespace-nowrap"
             >
-              <Archive className="w-4 h-4 text-slate-500" />
-              Historial ({closedBatchesCount})
+              <Archive className="w-4 h-4 text-slate-500 shrink-0" />
+              <span>Historial ({closedBatchesCount})</span>
             </Link>
 
             <Link
               href="/avicultura/ventas"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg shadow-xs transition"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg shadow-xs transition whitespace-nowrap"
             >
-              <DollarSign className="w-4 h-4" />
-              Ventas y Fiados
+              <DollarSign className="w-4 h-4 shrink-0" />
+              <span>Ventas y Fiados</span>
             </Link>
           </div>
         </div>
