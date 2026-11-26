@@ -14,6 +14,7 @@ import {
   Droplet,
   AlertTriangle,
   Snowflake,
+  ChevronDown,
 } from 'lucide-react';
 import { createPoultryBatch, processBirdsToFreezer } from './actions';
 import { DailyLogForm } from './DailyLogForm';
@@ -81,15 +82,28 @@ export default async function PollosPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Formulario Registro Nuevo Lote */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs sticky top-24">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
-              <PlusCircle className="w-5 h-5 text-amber-600" />
-              Ingresar Lote de Engorde
-            </h2>
-            <form action={createPoultryBatch} className="space-y-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+        {/* Formulario Colapsable Registro Nuevo Lote */}
+        <div className="lg:col-span-1">
+          <details className="group bg-white rounded-xl border border-slate-200 shadow-xs lg:sticky lg:top-24 overflow-hidden">
+            <summary className="list-none cursor-pointer p-4 sm:p-5 flex items-center justify-between hover:bg-amber-50/40 transition select-none">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <PlusCircle className="w-4 h-4" />
+                </span>
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                    Ingresar Nuevo Lote
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Toca para desplegar formulario de ingreso
+                  </p>
+                </div>
+              </div>
+              <ChevronDown className="w-4 h-4 text-slate-400 transition-transform duration-200 group-open:rotate-180 shrink-0" />
+            </summary>
+
+            <form action={createPoultryBatch} className="p-5 pt-2 border-t border-slate-100 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Identificador del Lote</label>
                 <input
@@ -174,7 +188,7 @@ export default async function PollosPage() {
                 Guardar Lote
               </button>
             </form>
-          </div>
+          </details>
         </div>
 
         {/* Listado de Lotes Activos */}
@@ -217,13 +231,9 @@ export default async function PollosPage() {
               const totalFeedCost = batch.dailyLogs.reduce((acc, log) => acc + Number(log.feedCost || 0), 0);
               const totalCost = Number(batch.chickCostTotal) + totalFeedCost;
 
-              // Población útil total (vivos en galpón + beneficiados en congelador + ya vendidos)
               const totalUsefulBirds = batch.currentQuantity + freezerBirds + totalSold;
-
-              // Costo real unitario por ave producida en el lote
               const unitCost = totalUsefulBirds > 0 ? totalCost / totalUsefulBirds : 0;
 
-              // Muestreo más reciente y Conversión (FCA)
               const latestSampling = batch.samplings[0];
               const avgWeightGrams = latestSampling ? Number(latestSampling.avgWeightGrams) : null;
               const avgWeightLbs = avgWeightGrams ? (avgWeightGrams / 453.592).toFixed(2) : null;
@@ -236,7 +246,6 @@ export default async function PollosPage() {
                   ? (totalFeedServed / totalLiveBiomassKg).toFixed(2)
                   : null;
 
-              // Retiro sanitario activo
               const activeWithdrawalTreatment = batch.treatments.find((t) => {
                 if (t.withdrawalDays <= 0) return false;
                 const treatmentDate = new Date(t.date).getTime();
@@ -294,8 +303,9 @@ export default async function PollosPage() {
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ${cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
-                          }`}
+                        className={`h-full transition-all duration-500 ${
+                          cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
+                        }`}
                         style={{ width: `${cycleProgress}%` }}
                       />
                     </div>
