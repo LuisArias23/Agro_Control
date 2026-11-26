@@ -153,7 +153,6 @@ export default async function PonedorasPage() {
               const days = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
               const currentWeek = Math.floor(days / 7);
 
-              // Ciclo postura: Sem. 18 (126 días) inicio postura | Sem. 80 (560 días) fin ciclo
               const startLayingDay = 126;
               const endLayingDay = 560;
               const layingSpanDays = endLayingDay - startLayingDay;
@@ -174,8 +173,11 @@ export default async function PonedorasPage() {
               const totalEggsGood = batch.eggLogs.reduce((acc, l) => acc + l.eggsCollected, 0);
               const totalEggsBroken = batch.eggLogs.reduce((acc, l) => acc + l.eggsBroken, 0);
               const totalFeedKg = batch.eggLogs.reduce((acc, l) => acc + Number(l.feedKgServed), 0);
+              const totalFeedCost = batch.eggLogs.reduce((acc, l) => acc + Number(l.feedCost || 0), 0);
 
-              // Consumo estimado según días y población actual
+              const initialInvestment = Number(batch.costTotal);
+              const totalInvestment = initialInvestment + totalFeedCost;
+
               const expectedFeedKg = getExpectedFeedPerHenKg(days) * batch.currentHens;
               const expectedBultos = (expectedFeedKg / 40).toFixed(1);
               const realBultos = (totalFeedKg / 40).toFixed(1);
@@ -185,6 +187,7 @@ export default async function PonedorasPage() {
               const pendingFiado = batch.sales
                 .filter((s) => !s.isPaid)
                 .reduce((acc, s) => acc + Number(s.totalAmount), 0);
+              const balance = totalIncome - totalInvestment;
 
               const availableEggs = Math.max(0, totalEggsGood - totalSoldUnits);
               const availablePanales = (availableEggs / 30).toFixed(1);
@@ -210,13 +213,14 @@ export default async function PonedorasPage() {
                             batchCode: batch.batchCode,
                             startDate: batch.startDate.toISOString(),
                             initialHens: batch.initialHens,
-                            costTotal: Number(batch.costTotal),
+                            costTotal: initialInvestment,
                           }}
                         />
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Inició: {new Date(batch.startDate).toLocaleDateString('es-CO')} · Inv. inicial: $
-                        {Number(batch.costTotal).toLocaleString('es-CO')}
+                        Inició: {new Date(batch.startDate).toLocaleDateString('es-CO')} · Inv. aves: $
+                        {initialInvestment.toLocaleString('es-CO')} · Inv. total: $
+                        {totalInvestment.toLocaleString('es-CO')}
                       </p>
                     </div>
 
@@ -308,36 +312,42 @@ export default async function PonedorasPage() {
                     </div>
 
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <span className="text-xs text-slate-500">Huevos Históricos</span>
-                      <p className="text-base font-bold text-slate-900">
-                        {totalEggsGood} <span className="text-xs font-normal text-slate-500">aptos</span>
-                      </p>
-                      <span className="text-[10px] text-rose-500 block mt-0.5">{totalEggsBroken} rotos/sucios</span>
-                    </div>
-
-                    {/* Alimento Real Registrado vs Consumo Estimado según Días */}
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <span className="text-xs text-slate-500">Alimento (Real / Est.)</span>
                       <p className="text-base font-bold text-slate-900">
                         {totalFeedKg.toFixed(1)} <span className="text-xs font-normal text-slate-500">Kg</span>
                       </p>
-                      <span className="text-[10px] text-slate-500 block mt-0.5">
-                        Real: <strong>{realBultos} bto</strong>
+                      <span className="text-[10px] text-amber-800 font-bold block mt-0.5">
+                        ${totalFeedCost.toLocaleString('es-CO')} ({realBultos} bto)
                       </span>
-                      <span className="text-[10px] text-amber-800 font-semibold block">
+                      <span className="text-[10px] text-slate-500 block">
                         Est. ({days}d): ~{expectedFeedKg.toFixed(0)} Kg ({expectedBultos} bto)
                       </span>
                     </div>
 
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <span className="text-xs text-slate-500">Ventas Totales</span>
+                      <span className="text-xs text-slate-500">Costo Acumulado</span>
+                      <p className="text-base font-bold text-slate-900">
+                        ${totalInvestment.toLocaleString('es-CO')}
+                      </p>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">
+                        Aves + Alimento
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="text-xs text-slate-500">Ventas / Balance</span>
                       <p className="text-base font-bold text-emerald-700">${totalIncome.toLocaleString('es-CO')}</p>
-                      {pendingFiado > 0 ? (
-                        <span className="text-[10px] text-amber-700 font-bold block mt-0.5">
+                      <span
+                        className={`text-[10px] font-bold block mt-0.5 ${
+                          balance >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                        }`}
+                      >
+                        Bal: ${balance.toLocaleString('es-CO')}
+                      </span>
+                      {pendingFiado > 0 && (
+                        <span className="text-[10px] text-amber-700 font-bold block">
                           Fiados: ${pendingFiado.toLocaleString('es-CO')}
                         </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 block mt-0.5">Al día</span>
                       )}
                     </div>
                   </div>
