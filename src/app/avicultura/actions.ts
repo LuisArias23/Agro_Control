@@ -252,15 +252,16 @@ export async function deleteDailyLog(logId: string) {
 export async function addPoultrySale(formData: FormData) {
   try {
     const batchId = formData.get('batchId') as string;
-    const birdsSold = parseInt(formData.get('birdsSold') as string || '0', 10);
-    const saleType = (formData.get('saleType') as string) || 'CANAL';
-    const totalWeight = parseFloat(formData.get('totalWeight') as string || '0');
-    const totalPrice = parseFloat(formData.get('totalPrice') as string || '0');
+    const saleType = (formData.get('saleType') as string) || 'CANAL'; // 'CANAL' | 'EN_PIE' | 'MENUDENCIA'
+    const rawBirdsSold = parseInt((formData.get('birdsSold') as string) || '0', 10);
+    const birdsSold = saleType === 'MENUDENCIA' ? 0 : rawBirdsSold;
+    const totalWeight = parseFloat((formData.get('totalWeight') as string) || '0');
+    const totalPrice = parseFloat((formData.get('totalPrice') as string) || '0');
     const paymentStatus = (formData.get('paymentStatus') as string) || 'PAGADO';
     const customer = (formData.get('customer') as string) || '';
-    const notes = (formData.get('notes') as string) || '';
 
-    if (!batchId || birdsSold <= 0) return;
+    if (!batchId || totalPrice <= 0) return;
+    if (saleType !== 'MENUDENCIA' && birdsSold <= 0) return;
 
     const batch = await prisma.poultryBatch.findUnique({
       where: { id: batchId },
@@ -268,17 +269,31 @@ export async function addPoultrySale(formData: FormData) {
 
     if (!batch) return;
 
-    // Si vende en canal y hay pollos en congelador, descuenta del congelador;
-    // si no alcanza el congelador (venta directa sin pasar por congelador), descuenta la diferencia del galpón.
-    let decrementFreezer = 0;
-    let decrementLive = 0;
-
-    if (saleType === 'CANAL' && batch.freezerQuantity > 0) {
-      decrementFreezer = Math.min(batch.freezerQuantity, birdsSold);
-      decrementLive = Math.max(0, birdsSold - decrementFreezer);
-    } else {
-      decrementLive = birdsSold;
-    }
+    // Solo descontar inventario de pollos si no es menudencia
+    const inventoryUpdate =
+      saleType === 'MENUDENCIA'
+        ? []
+        : saleType === 'EN_PIE'
+          ? [
+              prisma.poultryBatch.update({
+                where: { id: batchId },
+                data: {
+                  currentQuantity: {
+                    decrement: Math.min(batch.currentQuantity, birdsSold),
+                  },
+                },
+              }),
+            ]
+          : [
+              prisma.poultryBatch.update({
+                where: { id: batchId },
+                data: {
+                  freezerQuantity: {
+                    decrement: Math.min(batch.freezerQuantity || 0, birdsSold),
+                  },
+                },
+              }),
+            ];
 
     await prisma.$transaction([
       prisma.poultrySale.create({
@@ -287,29 +302,22 @@ export async function addPoultrySale(formData: FormData) {
           birdsSold,
           saleType,
           totalWeight: isNaN(totalWeight) ? 0 : totalWeight,
-          totalPrice: isNaN(totalPrice) ? 0 : totalPrice,
+          totalPrice,
           paymentStatus,
           customer: customer || null,
-          notes: notes || null,
         },
       }),
-      prisma.poultryBatch.update({
-        where: { id: batchId },
-        data: {
-          ...(decrementFreezer > 0 ? { freezerQuantity: { decrement: decrementFreezer } } : {}),
-          ...(decrementLive > 0 ? { currentQuantity: { decrement: decrementLive } } : {}),
-        },
-      }),
+      ...inventoryUpdate,
     ]);
 
     revalidatePath('/avicultura');
     revalidatePath('/avicultura/ventas');
+    revalidatePath('/avicultura/historial');
   } catch (error) {
-    console.error('Error al registrar saca parcial:', error);
+    console.error('Error al registrar venta avícola:', error);
   }
 }
 
-// Eliminar Saca y Devolver Aves (al Congelador si fue CANAL, o al Galpón si fue EN_PIE)
 export async function deletePoultrySale(saleId: string) {
   try {
     const sale = await prisma.poultrySale.findUnique({
@@ -318,15 +326,25 @@ export async function deletePoultrySale(saleId: string) {
 
     if (!sale) return;
 
-    const returnToFreezer = sale.saleType === 'CANAL';
+    const inventoryRestore =
+      sale.saleType === 'MENUDENCIA' || sale.birdsSold <= 0
+        ? []
+        : sale.saleType === 'EN_PIE'
+          ? [
+              prisma.poultryBatch.update({
+                where: { id: sale.batchId },
+                data: { currentQuantity: { increment: sale.birdsSold } },
+              }),
+            ]
+          : [
+              prisma.poultryBatch.update({
+                where: { id: sale.batchId },
+                data: { freezerQuantity: { increment: sale.birdsSold } },
+              }),
+            ];
 
     await prisma.$transaction([
-      prisma.poultryBatch.update({
-        where: { id: sale.batchId },
-        data: returnToFreezer
-          ? { freezerQuantity: { increment: sale.birdsSold } }
-          : { currentQuantity: { increment: sale.birdsSold } },
-      }),
+      ...inventoryRestore,
       prisma.poultrySale.delete({
         where: { id: saleId },
       }),
@@ -334,8 +352,9 @@ export async function deletePoultrySale(saleId: string) {
 
     revalidatePath('/avicultura');
     revalidatePath('/avicultura/ventas');
+    revalidatePath('/avicultura/historial');
   } catch (error) {
-    console.error('Error al eliminar venta:', error);
+    console.error('Error al eliminar venta avícola:', error);
   }
 }
 
