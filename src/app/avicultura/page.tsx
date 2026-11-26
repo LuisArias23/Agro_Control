@@ -292,9 +292,8 @@ export default async function PollosPage() {
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ${
-                          cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
-                        }`}
+                        className={`h-full transition-all duration-500 ${cycleProgress >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
+                          }`}
                         style={{ width: `${cycleProgress}%` }}
                       />
                     </div>
@@ -316,11 +315,16 @@ export default async function PollosPage() {
                       <span className="text-xs text-slate-500">Galpón / Congelador</span>
                       <p className="text-base font-bold text-slate-900">
                         {batch.currentQuantity}{' '}
-                        <span className="text-xs font-normal text-slate-500">vivos</span>
+                        <span className="text-xs font-normal text-slate-400">/ {batch.initialQuantity}</span>
                       </p>
                       {freezerBirds > 0 && (
                         <span className="text-[11px] font-bold text-sky-700 block mt-0.5">
                           ❄️ {freezerBirds} en congelador
+                        </span>
+                      )}
+                      {totalSold > 0 && (
+                        <span className="text-[10px] font-semibold text-emerald-700 block mt-0.5">
+                          ✅ {totalSold} vendidas
                         </span>
                       )}
                       <span className="text-[10px] text-rose-600 block mt-0.5">

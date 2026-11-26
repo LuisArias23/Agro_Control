@@ -121,7 +121,7 @@ export default async function PollosVentasPage() {
                         const stageLabel = ageDays >= 42 ? 'Listo / En saca' : `Día ${ageDays}`;
                         return (
                           <option key={b.id} value={b.id}>
-                            {b.batchCode} ({freezerQty} congelador · {b.currentQuantity} vivos · {stageLabel})
+                            {b.batchCode} ({freezerQty} congelador · {b.currentQuantity} vivos · de {b.initialQuantity} · {stageLabel})
                           </option>
                         );
                       })}
@@ -226,6 +226,7 @@ export default async function PollosVentasPage() {
                     const feedCost = batch.dailyLogs.reduce((acc, l) => acc + Number(l.feedCost || 0), 0);
                     const totalCost = Number(batch.chickCostTotal) + feedCost;
                     const totalSales = batch.sales.reduce((acc, s) => acc + Number(s.totalPrice), 0);
+                    const totalSoldBatch = batch.sales.reduce((acc, s) => acc + s.birdsSold, 0);
                     const profit = totalSales - totalCost;
                     const ageDays = getBatchAgeDays(batch.startDate);
                     const freezerQty = batch.freezerQuantity || 0;
@@ -241,6 +242,9 @@ export default async function PollosVentasPage() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-bold text-slate-900 text-sm">{batch.batchCode}</span>
+                            <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-slate-200/80 text-slate-700">
+                              Lote de {batch.initialQuantity} aves
+                            </span>
                             {freezerQty > 0 && (
                               <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-sky-100 text-sky-800">
                                 ❄️ {freezerQty} en congelador
@@ -255,7 +259,7 @@ export default async function PollosVentasPage() {
                             </span>
                           </div>
                           <p className="text-slate-500 mt-0.5">
-                            Inversión: ${totalCost.toLocaleString('es-CO')} | Ventas: ${totalSales.toLocaleString('es-CO')} | Utilidad:{' '}
+                            Vendidas: <strong className="text-slate-700">{totalSoldBatch}</strong> | Inversión: ${totalCost.toLocaleString('es-CO')} | Ventas: ${totalSales.toLocaleString('es-CO')} | Utilidad:{' '}
                             <strong className={profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
                               ${profit.toLocaleString('es-CO')}
                             </strong>
