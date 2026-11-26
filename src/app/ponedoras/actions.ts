@@ -73,6 +73,7 @@ export async function updateLayerBatch(formData: FormData) {
 }
 
 // Registrar Recolección Diaria, Bajas y Alimento
+// Registrar Recolección Diaria, Bajas y Alimento
 export async function addLayerDailyLog(formData: FormData) {
   try {
     const batchId = formData.get('batchId') as string;
@@ -80,19 +81,38 @@ export async function addLayerDailyLog(formData: FormData) {
     const eggsBroken = parseInt(formData.get('eggsBroken') as string || '0', 10);
     const mortalityCount = parseInt(formData.get('mortalityCount') as string || '0', 10);
 
+    const feedBrand = (formData.get('feedBrand') as string) || 'ITALCOL';
+    const feedStage = (formData.get('feedStage') as string) || 'Postura Fase 1';
+    const entryMode = (formData.get('entryMode') as string) || 'bultos';
+
     const bultos = parseFloat(formData.get('bultos') as string || '0');
     const manualKg = parseFloat(formData.get('manualKg') as string || '0');
+    const feedCost = parseFloat(formData.get('feedCost') as string || '0');
+
+    const brandNames: Record<string, string> = {
+      ITALCOL: 'Italcol Ponedoras',
+      FINCA: 'Finca Ponedoras',
+      CONTEGRAL: 'Contegral',
+      OTRO: 'Otro',
+    };
+    const brandLabel = brandNames[feedBrand] || feedBrand;
 
     let feedKgServed = 0;
-    if (bultos > 0) {
+    let detailText = '';
+
+    if (entryMode === 'bultos' && bultos > 0) {
       feedKgServed = bultos * 40;
-    } else if (manualKg > 0) {
+      detailText = `${bultos} bto(s) ${brandLabel} [${feedStage}]`;
+    } else if (entryMode === 'kilos' && manualKg > 0) {
       feedKgServed = manualKg;
+      detailText = `${manualKg} Kg ${brandLabel} [${feedStage}]`;
     }
 
-    const notes = (formData.get('notes') as string) || '';
+    const userNotes = (formData.get('notes') as string) || '';
+    const finalNotes = [userNotes, detailText].filter(Boolean).join(' - ');
 
     if (!batchId) return;
+    if (eggsCollected <= 0 && eggsBroken <= 0 && mortalityCount <= 0 && feedKgServed <= 0 && !userNotes) return;
 
     await prisma.$transaction([
       prisma.layerDailyLog.create({
@@ -101,8 +121,10 @@ export async function addLayerDailyLog(formData: FormData) {
           eggsCollected: isNaN(eggsCollected) ? 0 : eggsCollected,
           eggsBroken: isNaN(eggsBroken) ? 0 : eggsBroken,
           mortalityCount: isNaN(mortalityCount) ? 0 : mortalityCount,
+          feedBrand: feedKgServed > 0 ? feedBrand : 'SIN_ALIMENTO',
           feedKgServed: isNaN(feedKgServed) ? 0 : feedKgServed,
-          notes: notes || null,
+          feedCost: isNaN(feedCost) ? 0 : (feedKgServed > 0 ? feedCost : 0),
+          notes: finalNotes || null,
         },
       }),
       ...(mortalityCount > 0

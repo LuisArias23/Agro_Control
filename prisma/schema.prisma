@@ -169,7 +169,9 @@ model LayerDailyLog {
   batch          LayerBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   date           DateTime   @default(now())
   mortalityCount Int        @default(0)
+  feedBrand      String     @default("ITALCOL")
   feedKgServed   Decimal    @default(0) @db.Decimal(10, 2)
+  feedCost       Decimal    @default(0) @db.Decimal(10, 2)
   eggsCollected  Int        @default(0)
   eggsBroken     Int        @default(0)
   notes          String?
