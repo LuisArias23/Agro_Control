@@ -46,26 +46,29 @@ export default async function PollosVentasPage() {
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Cabecera */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 py-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
             <BackButton href="/avicultura" />
-            <div>
-              <h1 className="text-lg font-bold flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-emerald-600" />
-                Ventas y Despachos (Lotes Activos)
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold flex items-center gap-1.5 truncate">
+                <DollarSign className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span className="truncate">Ventas y Despachos</span>
               </h1>
-              <p className="text-xs text-slate-500">Control de sacas en pie/canal, congelador, fiados y liquidación</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                Sacas en pie/canal, congelador, fiados y liquidación
+              </p>
             </div>
           </div>
 
           <Link
             href="/avicultura/historial"
-            className="px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition"
+            className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition whitespace-nowrap shrink-0 ml-auto sm:ml-0"
           >
-            Ver Historial Liquidado →
+            Historial Liquidado →
           </Link>
         </div>
       </header>
+      
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
         {/* Métricas de Caja y Cartera (Lotes Activos) */}
